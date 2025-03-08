@@ -11,7 +11,7 @@ import BriefsList from './pages/BriefsList';
 import BriefDetail from './pages/BriefDetail';
 import CreateBrief from './pages/CreateBrief';
 import ResourceManagement from './pages/ResourceManagement';
-import TradeshowsList from './pages/TradeshowsList';
+import CampaignsList from './pages/CampaignsList';
 import UserManagement from './pages/UserManagement';
 import NotFound from './pages/NotFound';
 import ProtectedRoute from './components/auth/ProtectedRoute';
@@ -40,7 +40,7 @@ function App() {
             <Route path="/briefs/create" element={<CreateBrief />} />
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
             <Route path="/resources" element={<ResourceManagement />} />
-            <Route path="/tradeshows" element={<TradeshowsList />} />
+            <Route path="/campaigns" element={<CampaignsList />} />
             <Route path="/users" element={<UserManagement />} />
           </Route>
           

@@ -13,6 +13,8 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
 export type ResourceType = 'internal' | 'agency' | 'freelancer';
 
+export type CampaignType = 'tradeshow' | 'product_launch' | 'seasonal_promotion' | 'digital_campaign' | 'event' | 'other';
+
 export interface User {
   id: string;
   name: string;
@@ -37,6 +39,7 @@ export interface Brief {
   due_date: string;
   resource_id: string | null;
   approver_id: string | null;
+  campaign_id: string | null;
   status: BriefStatus;
   priority: Priority;
   description: string | null;
@@ -48,13 +51,16 @@ export interface Brief {
   updated_at: string;
 }
 
-export interface Tradeshow {
+export interface Campaign {
   id: string;
   name: string;
+  campaign_type: CampaignType;
   start_date: string;
   end_date: string;
+  location: string | null;
   description: string | null;
   created_at: string;
+  updated_at: string | null;
 }
 
 export interface History {
