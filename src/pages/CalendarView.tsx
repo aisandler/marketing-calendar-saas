@@ -10,6 +10,14 @@ import { Calendar, ChevronLeft, ChevronRight, List, Search } from 'lucide-react'
 import { Input } from '../components/ui/Input';
 import type { Brief, Tradeshow } from '../types';
 
+// Helper function to ensure consistent date formatting for Gantt chart
+const formatDateForGantt = (dateString: string): string => {
+  // Parse the date string to ensure consistent format
+  const date = new Date(dateString);
+  // Format as YYYY-MM-DD which is what Gantt expects
+  return date.toISOString().split('T')[0];
+};
+
 const CalendarView = () => {
   const ganttContainer = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
@@ -143,27 +151,49 @@ const CalendarView = () => {
     // Prepare data for Gantt chart
     const tasks = {
       data: [
-        ...briefs.map(brief => ({
-          id: brief.id,
-          text: brief.title,
-          start_date: brief.start_date,
-          end_date: brief.due_date,
-          duration: Math.ceil((new Date(brief.due_date).getTime() - new Date(brief.start_date).getTime()) / (1000 * 3600 * 24)),
-          progress: brief.status === 'complete' ? 1 : brief.status === 'in_progress' ? 0.5 : 0,
-          priority: brief.priority,
-          resource: brief.resource_id,
-          type: 'brief'
-        })),
-        ...tradeshows.map(tradeshow => ({
-          id: `tradeshow-${tradeshow.id}`,
-          text: `Tradeshow: ${tradeshow.name}`,
-          start_date: tradeshow.start_date,
-          end_date: tradeshow.end_date,
-          duration: Math.ceil((new Date(tradeshow.end_date).getTime() - new Date(tradeshow.start_date).getTime()) / (1000 * 3600 * 24)),
-          progress: 0,
-          priority: 'urgent', // Tradeshows always have highest priority
-          type: 'tradeshow'
-        }))
+        ...briefs.map(brief => {
+          // Format dates consistently for Gantt chart
+          const startDate = formatDateForGantt(brief.start_date);
+          const endDate = formatDateForGantt(brief.due_date);
+          
+          // Calculate duration in days
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+          
+          return {
+            id: brief.id,
+            text: brief.title,
+            start_date: startDate,
+            end_date: endDate,
+            duration: durationDays,
+            progress: brief.status === 'complete' ? 1 : brief.status === 'in_progress' ? 0.5 : 0,
+            priority: brief.priority,
+            resource: brief.resource_id,
+            type: 'brief'
+          };
+        }),
+        ...tradeshows.map(tradeshow => {
+          // Format dates consistently for Gantt chart
+          const startDate = formatDateForGantt(tradeshow.start_date);
+          const endDate = formatDateForGantt(tradeshow.end_date);
+          
+          // Calculate duration in days
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+          
+          return {
+            id: `tradeshow-${tradeshow.id}`,
+            text: `Tradeshow: ${tradeshow.name}`,
+            start_date: startDate,
+            end_date: endDate,
+            duration: durationDays,
+            progress: 0,
+            priority: 'urgent', // Tradeshows always have highest priority
+            type: 'tradeshow'
+          };
+        })
       ],
       links: [] // No links between tasks for now
     };
@@ -204,11 +234,12 @@ const CalendarView = () => {
     `;
     document.head.appendChild(style);
     
+    // Cleanup
     return () => {
       document.head.removeChild(style);
       (gantt as any).clearAll();
     };
-  }, [loading, briefs, tradeshows, viewMode, searchQuery]);
+  }, [briefs, tradeshows, loading, viewMode, searchQuery]);
 
   const handleViewModeChange = (mode: 'day' | 'week' | 'month' | 'quarter' | 'year') => {
     setViewMode(mode);
