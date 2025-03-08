@@ -38,6 +38,7 @@ function App() {
             <Route path="/briefs" element={<BriefsList />} />
             <Route path="/briefs/:id" element={<BriefDetail />} />
             <Route path="/briefs/create" element={<CreateBrief />} />
+            <Route path="/briefs/:id/edit" element={<CreateBrief />} />
             <Route path="/resources" element={<ResourceManagement />} />
             <Route path="/tradeshows" element={<TradeshowsList />} />
             <Route path="/users" element={<UserManagement />} />

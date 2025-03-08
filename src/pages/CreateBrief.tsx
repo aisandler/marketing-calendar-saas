@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { AlertTriangle } from 'lucide-react';
-import type { User, Resource } from '../types';
+import type { User, Resource, Brief } from '../types';
 
 const briefSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -38,6 +38,8 @@ const briefSchema = z.object({
 type BriefFormData = z.infer<typeof briefSchema>;
 
 const CreateBrief = () => {
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = !!id;
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -46,12 +48,14 @@ const CreateBrief = () => {
   const [approvers, setApprovers] = useState<User[]>([]);
   const [resourceConflict, setResourceConflict] = useState(false);
   const [tradeshowConflict, setTradeshowConflict] = useState(false);
+  const [existingBrief, setExistingBrief] = useState<Brief | null>(null);
 
   const {
     register,
     handleSubmit,
     watch,
     control,
+    reset,
     formState: { errors },
   } = useForm<BriefFormData>({
     resolver: zodResolver(briefSchema),
@@ -97,14 +101,40 @@ const CreateBrief = () => {
         
         setResources(resourcesData as Resource[]);
         setApprovers(approversData as User[]);
-      } catch (error) {
-        console.error('Error fetching form data:', error);
-        setError('Failed to load form data. Please try again.');
+
+        // If in edit mode, fetch the existing brief
+        if (isEditMode && id) {
+          const { data: briefData, error: briefError } = await supabase
+            .from('briefs')
+            .select('*')
+            .eq('id', id)
+            .single();
+          
+          if (briefError) throw briefError;
+          if (!briefData) throw new Error('Brief not found');
+          
+          setExistingBrief(briefData as Brief);
+          
+          // Format dates for form input
+          const formattedBrief = {
+            ...briefData,
+            start_date: briefData.start_date.split('T')[0],
+            due_date: briefData.due_date.split('T')[0],
+            estimated_hours: briefData.estimated_hours || null,
+            expenses: briefData.expenses || null,
+          };
+          
+          // Reset form with existing brief data
+          reset(formattedBrief);
+        }
+      } catch (error: any) {
+        console.error('Error fetching data:', error);
+        setError(error.message || 'Failed to load data.');
       }
     };
     
     fetchData();
-  }, []);
+  }, [id, isEditMode, reset]);
 
   // Check for resource conflicts when relevant fields change
   useEffect(() => {
@@ -167,28 +197,59 @@ const CreateBrief = () => {
       setLoading(true);
       setError(null);
       
-      // Prepare the brief data
-      const briefData = {
-        ...data,
-        created_by: user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      
-      // Insert the brief
-      const { data: newBrief, error } = await supabase
-        .from('briefs')
-        .insert([briefData])
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      // Navigate to the brief detail page
-      navigate(`/briefs/${newBrief.id}`);
+      if (isEditMode && id) {
+        // Update existing brief
+        const { error } = await supabase
+          .from('briefs')
+          .update({
+            ...data,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', id);
+        
+        if (error) throw error;
+        
+        // Create history record
+        if (existingBrief) {
+          await supabase
+            .from('history')
+            .insert([
+              {
+                brief_id: id,
+                changed_by: user.id,
+                previous_state: existingBrief,
+                new_state: data,
+                created_at: new Date().toISOString()
+              }
+            ]);
+        }
+        
+        // Navigate to the brief detail page
+        navigate(`/briefs/${id}`);
+      } else {
+        // Create new brief
+        const briefData = {
+          ...data,
+          created_by: user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        // Insert the brief
+        const { data: newBrief, error } = await supabase
+          .from('briefs')
+          .insert([briefData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        // Navigate to the brief detail page
+        navigate(`/briefs/${newBrief.id}`);
+      }
     } catch (error: any) {
-      console.error('Error creating brief:', error);
-      setError(error.message || 'Failed to create brief. Please try again.');
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} brief:`, error);
+      setError(error.message || `Failed to ${isEditMode ? 'update' : 'create'} brief. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -197,7 +258,9 @@ const CreateBrief = () => {
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Create New Brief</h2>
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">
+          {isEditMode ? 'Edit Brief' : 'Create New Brief'}
+        </h2>
         
         {error && (
           <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
@@ -438,20 +501,22 @@ const CreateBrief = () => {
             </div>
           </div>
           
-          {/* Submission */}
-          <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => navigate('/briefs')}
-            >
-              Cancel
-            </Button>
+          {/* Submit button */}
+          <div className="flex justify-end">
             <Button
               type="submit"
               disabled={loading}
+              className="px-4 py-2"
             >
-              {loading ? 'Creating...' : 'Create Brief'}
+              {loading ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Processing...
+                </span>
+              ) : isEditMode ? 'Update Brief' : 'Create Brief'}
             </Button>
           </div>
         </form>
