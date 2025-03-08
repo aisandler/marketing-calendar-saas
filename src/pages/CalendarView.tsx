@@ -79,6 +79,29 @@ const CalendarView = () => {
     (gantt as any).config.min_column_width = 80;
     (gantt as any).config.duration_unit = "day";
     
+    // Fix for year selection in lightbox (date editor)
+    // Set the year range to current year +/- 10 years
+    const currentYear = new Date().getFullYear();
+    (gantt as any).config.year_range = [currentYear - 10, currentYear + 10];
+    
+    // Configure the lightbox (task editor)
+    (gantt as any).config.lightbox.sections = [
+      { name: "description", height: 70, map_to: "text", type: "textarea", focus: true },
+      { name: "time", height: 72, map_to: "auto", type: "duration" }
+    ];
+    
+    // Enable task editing
+    (gantt as any).config.readonly = false;
+    
+    // Handle task double click to navigate to brief detail
+    (gantt as any).attachEvent("onTaskDblClick", function(id: string) {
+      // Only navigate for brief tasks, not tradeshows
+      if (!id.toString().includes('tradeshow-')) {
+        window.location.href = `/briefs/${id}`;
+      }
+      return true; // Returning true allows the default lightbox to open
+    });
+    
     // Configure timeline scale based on view mode
     switch (viewMode) {
       case 'day':
