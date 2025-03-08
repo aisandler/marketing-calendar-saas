@@ -1,0 +1,33 @@
+-- Option 1: Temporarily disable RLS for the users table
+-- This is the simplest approach for initial setup
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+
+-- Option 2: Modify RLS policies to allow registration
+-- If you prefer to keep RLS enabled, use this approach instead of Option 1
+-- DROP POLICY IF EXISTS "Only admins can insert users" ON public.users;
+-- CREATE POLICY "Users can insert themselves" ON public.users
+--   FOR INSERT WITH CHECK (auth.uid() = id);
+-- CREATE POLICY "Admins can insert users" ON public.users
+--   FOR INSERT WITH CHECK (
+--     auth.uid() IN (SELECT id FROM public.users WHERE role = 'admin')
+--   );
+
+-- After registering and setting up the first admin user,
+-- you can re-enable RLS with proper policies by running:
+-- 
+-- ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+-- 
+-- DROP POLICY IF EXISTS "Users can insert themselves" ON public.users;
+-- DROP POLICY IF EXISTS "Admins can insert users" ON public.users;
+-- 
+-- CREATE POLICY "Users can view all users" ON public.users
+--   FOR SELECT USING (true);
+-- 
+-- CREATE POLICY "Only admins can insert users" ON public.users
+--   FOR INSERT WITH CHECK (auth.uid() IN (SELECT id FROM public.users WHERE role = 'admin'));
+-- 
+-- CREATE POLICY "Only admins can update users" ON public.users
+--   FOR UPDATE USING (auth.uid() IN (SELECT id FROM public.users WHERE role = 'admin'));
+-- 
+-- CREATE POLICY "Only admins can delete users" ON public.users
+--   FOR DELETE USING (auth.uid() IN (SELECT id FROM public.users WHERE role = 'admin')); 
