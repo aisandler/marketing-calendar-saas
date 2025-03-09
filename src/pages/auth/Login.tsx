@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -18,6 +19,24 @@ const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const [authError, setAuthError] = React.useState<string | null>(null);
+  const [isClearing, setIsClearing] = React.useState(false);
+
+  // Clear any existing session on component mount
+  useEffect(() => {
+    const clearSession = async () => {
+      try {
+        setIsClearing(true);
+        await supabase.auth.signOut();
+        console.log('Session cleared on login page load');
+      } catch (error) {
+        console.error('Error clearing session:', error);
+      } finally {
+        setIsClearing(false);
+      }
+    };
+    
+    clearSession();
+  }, []);
 
   const {
     register,
@@ -33,12 +52,37 @@ const Login = () => {
       const { error } = await signIn(data.email, data.password);
       
       if (error) {
-        setAuthError(error.message);
+        console.error('Login error:', error);
+        setAuthError(error.message || 'Invalid email or password. Please try again.');
       } else {
         navigate('/dashboard');
       }
     } catch (err) {
+      console.error('Unexpected login error:', err);
       setAuthError('An unexpected error occurred. Please try again.');
+    }
+  };
+
+  const handleClearCookies = async () => {
+    try {
+      setIsClearing(true);
+      // Sign out from Supabase (clears the session)
+      await supabase.auth.signOut();
+      
+      // Clear browser cookies (this is a client-side approach)
+      document.cookie.split(';').forEach(cookie => {
+        document.cookie = cookie
+          .replace(/^ +/, '')
+          .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+      });
+      
+      // Reload the page to ensure everything is fresh
+      window.location.reload();
+    } catch (error) {
+      console.error('Error clearing cookies:', error);
+      setAuthError('Failed to clear cookies. Please try clearing them manually.');
+    } finally {
+      setIsClearing(false);
     }
   };
 
@@ -48,6 +92,16 @@ const Login = () => {
         {authError && (
           <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-600">
             {authError}
+            <div className="mt-2">
+              <button
+                type="button"
+                onClick={handleClearCookies}
+                className="text-xs text-red-700 underline"
+                disabled={isClearing}
+              >
+                {isClearing ? 'Clearing...' : 'Clear cookies and try again'}
+              </button>
+            </div>
           </div>
         )}
         
@@ -111,10 +165,21 @@ const Login = () => {
           <Button
             type="submit"
             className="w-full"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isClearing}
           >
             {isSubmitting ? 'Signing in...' : 'Sign in'}
           </Button>
+        </div>
+        
+        <div className="text-center">
+          <button
+            type="button"
+            onClick={handleClearCookies}
+            className="text-sm text-gray-600 hover:text-gray-900"
+            disabled={isClearing}
+          >
+            {isClearing ? 'Clearing session...' : 'Having trouble? Clear session data'}
+          </button>
         </div>
       </form>
 
