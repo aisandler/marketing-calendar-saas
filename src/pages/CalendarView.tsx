@@ -8,7 +8,7 @@ import 'dhtmlx-gantt/codebase/dhtmlxgantt.css';
 import { Button } from '../components/ui/Button';
 import { Calendar, ChevronLeft, ChevronRight, List, Search } from 'lucide-react';
 import { Input } from '../components/ui/Input';
-import type { Brief, Tradeshow } from '../types';
+import type { Brief, Campaign } from '../types';
 
 // Helper function to ensure consistent date formatting for Gantt chart
 const formatDateForGantt = (dateString: string): string => {
@@ -22,7 +22,7 @@ const CalendarView = () => {
   const ganttContainer = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [briefs, setBriefs] = useState<Brief[]>([]);
-  const [tradeshows, setTradeshows] = useState<Tradeshow[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [resources, setResources] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('week');
@@ -32,19 +32,23 @@ const CalendarView = () => {
       try {
         setLoading(true);
         
-        // Fetch briefs
+        // Fetch briefs with related data
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('*');
+          .select(`
+            *,
+            campaigns(*),
+            resources(*)
+          `);
         
         if (briefsError) throw briefsError;
         
-        // Fetch tradeshows
-        const { data: tradeshowsData, error: tradeshowsError } = await supabase
-          .from('tradeshows')
+        // Fetch campaigns
+        const { data: campaignsData, error: campaignsError } = await supabase
+          .from('campaigns')
           .select('*');
         
-        if (tradeshowsError) throw tradeshowsError;
+        if (campaignsError) throw campaignsError;
         
         // Fetch resources
         const { data: resourcesData, error: resourcesError } = await supabase
@@ -55,7 +59,7 @@ const CalendarView = () => {
         
         // Set state
         setBriefs(briefsData as Brief[]);
-        setTradeshows(tradeshowsData as Tradeshow[]);
+        setCampaigns(campaignsData as Campaign[]);
         setResources(resourcesData || []);
       } catch (error) {
         console.error('Error fetching calendar data:', error);
@@ -95,8 +99,8 @@ const CalendarView = () => {
     
     // Handle task double click to navigate to brief detail
     (gantt as any).attachEvent("onTaskDblClick", function(id: string) {
-      // Only navigate for brief tasks, not tradeshows
-      if (!id.toString().includes('tradeshow-')) {
+      // Only navigate for brief tasks, not campaigns
+      if (!id.toString().includes('campaign-')) {
         window.location.href = `/briefs/${id}`;
       }
       return true; // Returning true allows the default lightbox to open
@@ -151,30 +155,36 @@ const CalendarView = () => {
       { name: "duration", label: "Duration", align: "center", width: 60 }
     ];
     
-    // Custom styling for tradeshows (high priority)
+    // Custom styling for campaigns based on type
     (gantt as any).templates.task_class = (start: Date, end: Date, task: any) => {
-      if (task.type === 'tradeshow') {
-        return 'tradeshow-task';
+      if (task.type === 'campaign') {
+        return `campaign-task campaign-${task.campaign_type}`;
       }
       
-      switch (task.priority) {
-        case 'urgent':
-          return 'urgent-task';
-        case 'high':
-          return 'high-priority-task';
-        case 'medium':
-          return 'medium-priority-task';
-        case 'low':
-          return 'low-priority-task';
-        default:
-          return '';
+      if (task.priority === 'urgent') {
+        return 'high-priority-task';
+      } else if (task.priority === 'high') {
+        return 'medium-priority-task';
+      } else if (task.priority === 'medium') {
+        return 'low-priority-task';
+      } else {
+        return 'normal-task';
       }
     };
     
-    // Prepare data for Gantt chart
+    // Add campaigns to tasks
     const tasks = {
       data: [
-        ...briefs.map(brief => {
+        ...briefs.filter(brief => {
+          // Filter briefs based on search query
+          if (searchQuery) {
+            return (
+              brief.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              brief.description?.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+          }
+          return true;
+        }).map(brief => {
           // Format dates consistently for Gantt chart
           const startDate = formatDateForGantt(brief.start_date);
           const endDate = formatDateForGantt(brief.due_date);
@@ -182,7 +192,7 @@ const CalendarView = () => {
           // Calculate duration in days
           const start = new Date(startDate);
           const end = new Date(endDate);
-          const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+          const durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
           
           return {
             id: brief.id,
@@ -190,35 +200,40 @@ const CalendarView = () => {
             start_date: startDate,
             end_date: endDate,
             duration: durationDays,
-            progress: brief.status === 'complete' ? 1 : brief.status === 'in_progress' ? 0.5 : 0,
+            progress: brief.status === 'complete' ? 1 : 
+                      brief.status === 'review' ? 0.9 :
+                      brief.status === 'in_progress' ? 0.5 :
+                      brief.status === 'approved' ? 0.3 :
+                      brief.status === 'pending_approval' ? 0.1 : 0,
             priority: brief.priority,
             resource: brief.resource_id,
-            type: 'brief'
+            campaign_id: brief.campaign_id
           };
         }),
-        ...tradeshows.map(tradeshow => {
+        ...campaigns.map(campaign => {
           // Format dates consistently for Gantt chart
-          const startDate = formatDateForGantt(tradeshow.start_date);
-          const endDate = formatDateForGantt(tradeshow.end_date);
+          const startDate = formatDateForGantt(campaign.start_date);
+          const endDate = formatDateForGantt(campaign.end_date);
           
           // Calculate duration in days
           const start = new Date(startDate);
           const end = new Date(endDate);
-          const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 3600 * 24)));
+          const durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
           
           return {
-            id: `tradeshow-${tradeshow.id}`,
-            text: `Tradeshow: ${tradeshow.name}`,
+            id: `campaign-${campaign.id}`,
+            text: `${campaign.campaign_type.charAt(0).toUpperCase() + campaign.campaign_type.slice(1)}: ${campaign.name}`,
             start_date: startDate,
             end_date: endDate,
             duration: durationDays,
             progress: 0,
-            priority: 'urgent', // Tradeshows always have highest priority
-            type: 'tradeshow'
+            priority: 'urgent',
+            type: 'campaign',
+            campaign_type: campaign.campaign_type
           };
         })
       ],
-      links: [] // No links between tasks for now
+      links: []
     };
     
     // Filter tasks based on search query
@@ -231,28 +246,51 @@ const CalendarView = () => {
     // Initialize chart
     (gantt as any).parse(tasks);
     
-    // Add custom CSS
+    // Add custom CSS for campaign types
     const style = document.createElement('style');
     style.innerHTML = `
-      .gantt_task_line.tradeshow-task {
+      .gantt_task_line.campaign-task {
+        border-radius: 4px;
+      }
+      .gantt_task_line.campaign-tradeshow {
         background-color: #f87171;
         border-color: #ef4444;
       }
-      .gantt_task_line.urgent-task {
-        background-color: #fecaca;
-        border-color: #f87171;
+      .gantt_task_line.campaign-event {
+        background-color: #60a5fa;
+        border-color: #3b82f6;
+      }
+      .gantt_task_line.campaign-digital_campaign {
+        background-color: #a78bfa;
+        border-color: #8b5cf6;
+      }
+      .gantt_task_line.campaign-product_launch {
+        background-color: #34d399;
+        border-color: #10b981;
+      }
+      .gantt_task_line.campaign-seasonal_promotion {
+        background-color: #fbbf24;
+        border-color: #f59e0b;
+      }
+      .gantt_task_line.campaign-other {
+        background-color: #9ca3af;
+        border-color: #6b7280;
       }
       .gantt_task_line.high-priority-task {
-        background-color: #fed7aa;
-        border-color: #fb923c;
+        background-color: #f87171;
+        border-color: #ef4444;
       }
       .gantt_task_line.medium-priority-task {
-        background-color: #bfdbfe;
-        border-color: #60a5fa;
+        background-color: #fbbf24;
+        border-color: #f59e0b;
       }
       .gantt_task_line.low-priority-task {
-        background-color: #bbf7d0;
-        border-color: #4ade80;
+        background-color: #60a5fa;
+        border-color: #3b82f6;
+      }
+      .gantt_task_line.normal-task {
+        background-color: #9ca3af;
+        border-color: #6b7280;
       }
     `;
     document.head.appendChild(style);
@@ -262,7 +300,7 @@ const CalendarView = () => {
       document.head.removeChild(style);
       (gantt as any).clearAll();
     };
-  }, [briefs, tradeshows, loading, viewMode, searchQuery]);
+  }, [briefs, campaigns, loading, viewMode, searchQuery]);
 
   const handleViewModeChange = (mode: 'day' | 'week' | 'month' | 'quarter' | 'year') => {
     setViewMode(mode);
@@ -365,28 +403,31 @@ const CalendarView = () => {
       </div>
 
       {/* Legend */}
-      <div className="bg-white shadow rounded-lg p-4">
-        <div className="flex flex-wrap gap-4 text-sm">
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-red-400 rounded mr-2"></div>
-            <span>Tradeshow</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-red-200 rounded mr-2"></div>
-            <span>Urgent</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-orange-200 rounded mr-2"></div>
-            <span>High Priority</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-blue-200 rounded mr-2"></div>
-            <span>Medium Priority</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 bg-green-200 rounded mr-2"></div>
-            <span>Low Priority</span>
-          </div>
+      <div className="flex flex-wrap gap-4 mb-4 p-4 bg-white rounded-lg shadow">
+        <div className="text-sm font-medium">Legend:</div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-red-400 rounded mr-2"></div>
+          <span>Tradeshow</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-blue-400 rounded mr-2"></div>
+          <span>Event</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-purple-400 rounded mr-2"></div>
+          <span>Digital Campaign</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-green-400 rounded mr-2"></div>
+          <span>Product Launch</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-amber-400 rounded mr-2"></div>
+          <span>Seasonal Promotion</span>
+        </div>
+        <div className="flex items-center">
+          <div className="w-4 h-4 bg-gray-400 rounded mr-2"></div>
+          <span>Other</span>
         </div>
       </div>
 
