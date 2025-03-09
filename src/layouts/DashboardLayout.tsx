@@ -26,41 +26,17 @@ const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Check for session issues on mount
+  // Ensure we have a user
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        // Check if we have a session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error checking session in DashboardLayout:', error);
-          await signOut();
-          navigate('/login', { state: { authError: true } });
-          return;
-        }
-        
-        if (!session) {
-          console.warn('No session found in DashboardLayout');
-          navigate('/login', { state: { authError: true } });
-          return;
-        }
-        
-        if (!user) {
-          console.warn('Session exists but no user data in DashboardLayout');
-          // Try to refresh the session once
-          await refreshSession();
-        }
-      } catch (error) {
-        console.error('Unexpected error checking session in DashboardLayout:', error);
-      }
-    };
-    
-    checkSession();
-  }, [user, navigate, signOut, refreshSession]);
+    if (!user) {
+      console.log('DashboardLayout: No user found, redirecting to login');
+      navigate('/login');
+    }
+  }, [user, navigate]);
 
   const handleSignOut = async () => {
     try {
+      console.log('DashboardLayout: Signing out');
       await signOut();
       navigate('/login');
     } catch (error) {
@@ -73,6 +49,7 @@ const DashboardLayout: React.FC = () => {
   const handleRefreshSession = async () => {
     try {
       setIsRefreshing(true);
+      console.log('DashboardLayout: Refreshing session');
       await refreshSession();
       // Show a brief success message or visual feedback
       setTimeout(() => {

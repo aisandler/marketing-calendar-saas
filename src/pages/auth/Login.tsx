@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,111 +19,150 @@ const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [authError, setAuthError] = React.useState<string | null>(null);
-  const [isClearing, setIsClearing] = React.useState(false);
-  
-  // Check if we were redirected from a protected route due to auth error
-  const redirectedFromProtectedRoute = location.state?.authError === true;
+  const [error, setError] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [loginStatus, setLoginStatus] = useState<string>('');
 
-  // Clear any existing session on component mount
+  // Check if we already have a session
   useEffect(() => {
-    const clearSession = async () => {
+    const checkExistingSession = async () => {
       try {
-        setIsClearing(true);
-        await supabase.auth.signOut();
-        console.log('Session cleared on login page load');
+        // Get current session
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        // If we were redirected due to an auth error, show a message
-        if (redirectedFromProtectedRoute) {
-          setAuthError('Your session has expired or is invalid. Please sign in again.');
+        if (error) {
+          console.error('Login: Error checking session:', error);
+          return;
         }
-      } catch (error) {
-        console.error('Error clearing session:', error);
-        setAuthError('There was a problem with your session. Please try again.');
-      } finally {
-        setIsClearing(false);
+        
+        if (session?.user) {
+          console.log('Login: Session found, redirecting to dashboard');
+          navigate('/dashboard', { replace: true });
+        } else {
+          // Clear any existing session to start fresh
+          await supabase.auth.signOut();
+          console.log('Login: No session found or cleared existing session');
+        }
+      } catch (err) {
+        console.error('Login: Error checking session:', err);
       }
     };
     
-    clearSession();
-  }, [redirectedFromProtectedRoute]);
+    checkExistingSession();
+  }, [navigate]);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
   const onSubmit = async (data: LoginFormData) => {
     try {
-      setAuthError(null);
+      setIsProcessing(true);
+      setError(null);
+      setLoginStatus('Starting login process...');
+      
+      console.log('Login: Attempting to sign in with email:', data.email);
       
       // First, ensure we're starting with a clean session
       await supabase.auth.signOut();
+      setLoginStatus('Cleared previous session');
       
       // Then attempt to sign in
-      const { error } = await signIn(data.email, data.password);
+      setLoginStatus('Calling signIn function...');
+      const { error: signInError } = await signIn(data.email, data.password);
       
-      if (error) {
-        console.error('Login error:', error);
-        setAuthError(error.message || 'Invalid email or password. Please try again.');
-      } else {
-        // Navigate to the page they were trying to access, or dashboard
-        const from = location.state?.from?.pathname || '/dashboard';
-        navigate(from, { replace: true });
+      if (signInError) {
+        console.error('Login: Sign in error:', signInError);
+        setError(signInError.message || 'Invalid email or password');
+        setLoginStatus('Sign in failed');
+        return;
       }
+      
+      setLoginStatus('Sign in successful, navigating...');
+      
+      // Navigate to the page they were trying to access, or dashboard
+      const from = location.state?.from?.pathname || '/dashboard';
+      console.log('Login: Navigating to:', from);
+      
+      // Add a small delay to ensure auth state is updated
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 500);
     } catch (err) {
-      console.error('Unexpected login error:', err);
-      setAuthError('An unexpected error occurred. Please try again.');
+      console.error('Login: Unexpected error during sign in:', err);
+      setError('An unexpected error occurred. Please try again.');
+      setLoginStatus('Error during sign in');
+    } finally {
+      if (isProcessing) {
+        setIsProcessing(false);
+      }
     }
   };
 
-  const handleClearCookies = async () => {
+  const handleClearSession = async () => {
     try {
-      setIsClearing(true);
-      setAuthError('Clearing session data...');
+      setIsProcessing(true);
+      setError('Clearing session data...');
       
-      // Sign out from Supabase (clears the session)
+      // Sign out from Supabase
       await supabase.auth.signOut();
       
-      // Clear browser cookies (this is a client-side approach)
-      document.cookie.split(';').forEach(cookie => {
-        document.cookie = cookie
-          .replace(/^ +/, '')
-          .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
-      });
+      // Clear localStorage
+      try {
+        localStorage.clear();
+      } catch (e) {
+        console.error('Error clearing localStorage:', e);
+      }
       
-      setAuthError('Session data cleared. Please try signing in again.');
+      // Clear cookies
+      try {
+        document.cookie.split(';').forEach(cookie => {
+          document.cookie = cookie
+            .replace(/^ +/, '')
+            .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
+        });
+      } catch (e) {
+        console.error('Error clearing cookies:', e);
+      }
       
-      // Wait a moment before allowing another attempt
-      setTimeout(() => {
-        setIsClearing(false);
-      }, 1000);
-    } catch (error) {
-      console.error('Error clearing cookies:', error);
-      setAuthError('Failed to clear cookies. Please try clearing them manually.');
-      setIsClearing(false);
+      setError('Session data cleared. Please try signing in again.');
+      
+      // Reload the page to ensure a fresh state
+      window.location.reload();
+    } catch (err) {
+      console.error('Login: Error clearing session:', err);
+      setError('Failed to clear session data. Please try again.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   return (
     <div>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        {authError && (
+        {error && (
           <div className="bg-red-50 border border-red-200 rounded-md p-3 text-sm text-red-600">
-            {authError}
+            {error}
             <div className="mt-2">
               <button
                 type="button"
-                onClick={handleClearCookies}
+                onClick={handleClearSession}
                 className="text-xs text-red-700 underline"
-                disabled={isClearing}
+                disabled={isProcessing}
               >
-                {isClearing ? 'Clearing...' : 'Clear session data and try again'}
+                {isProcessing ? 'Processing...' : 'Clear session data and try again'}
               </button>
             </div>
+          </div>
+        )}
+        
+        {loginStatus && !error && (
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm text-blue-600">
+            Status: {loginStatus}
           </div>
         )}
         
@@ -137,8 +176,7 @@ const Login = () => {
               type="email"
               autoComplete="email"
               {...register('email')}
-              aria-invalid={errors.email ? 'true' : 'false'}
-              disabled={isClearing}
+              disabled={isProcessing}
             />
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -156,8 +194,7 @@ const Login = () => {
               type="password"
               autoComplete="current-password"
               {...register('password')}
-              aria-invalid={errors.password ? 'true' : 'false'}
-              disabled={isClearing}
+              disabled={isProcessing}
             />
             {errors.password && (
               <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
@@ -172,7 +209,7 @@ const Login = () => {
               name="remember-me"
               type="checkbox"
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              disabled={isClearing}
+              disabled={isProcessing}
             />
             <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
               Remember me
@@ -190,20 +227,20 @@ const Login = () => {
           <Button
             type="submit"
             className="w-full"
-            disabled={isSubmitting || isClearing}
+            disabled={isProcessing}
           >
-            {isSubmitting ? 'Signing in...' : 'Sign in'}
+            {isProcessing ? 'Signing in...' : 'Sign in'}
           </Button>
         </div>
         
         <div className="text-center">
           <button
             type="button"
-            onClick={handleClearCookies}
+            onClick={handleClearSession}
             className="text-sm text-gray-600 hover:text-gray-900"
-            disabled={isClearing}
+            disabled={isProcessing}
           >
-            {isClearing ? 'Clearing session...' : 'Having trouble? Clear session data'}
+            {isProcessing ? 'Processing...' : 'Having trouble? Clear session data'}
           </button>
         </div>
       </form>
