@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 
 const loginSchema = z.object({
@@ -18,8 +18,12 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const Login = () => {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [authError, setAuthError] = React.useState<string | null>(null);
   const [isClearing, setIsClearing] = React.useState(false);
+  
+  // Check if we were redirected from a protected route due to auth error
+  const redirectedFromProtectedRoute = location.state?.authError === true;
 
   // Clear any existing session on component mount
   useEffect(() => {
@@ -28,15 +32,21 @@ const Login = () => {
         setIsClearing(true);
         await supabase.auth.signOut();
         console.log('Session cleared on login page load');
+        
+        // If we were redirected due to an auth error, show a message
+        if (redirectedFromProtectedRoute) {
+          setAuthError('Your session has expired or is invalid. Please sign in again.');
+        }
       } catch (error) {
         console.error('Error clearing session:', error);
+        setAuthError('There was a problem with your session. Please try again.');
       } finally {
         setIsClearing(false);
       }
     };
     
     clearSession();
-  }, []);
+  }, [redirectedFromProtectedRoute]);
 
   const {
     register,
@@ -49,13 +59,20 @@ const Login = () => {
   const onSubmit = async (data: LoginFormData) => {
     try {
       setAuthError(null);
+      
+      // First, ensure we're starting with a clean session
+      await supabase.auth.signOut();
+      
+      // Then attempt to sign in
       const { error } = await signIn(data.email, data.password);
       
       if (error) {
         console.error('Login error:', error);
         setAuthError(error.message || 'Invalid email or password. Please try again.');
       } else {
-        navigate('/dashboard');
+        // Navigate to the page they were trying to access, or dashboard
+        const from = location.state?.from?.pathname || '/dashboard';
+        navigate(from, { replace: true });
       }
     } catch (err) {
       console.error('Unexpected login error:', err);
@@ -66,6 +83,8 @@ const Login = () => {
   const handleClearCookies = async () => {
     try {
       setIsClearing(true);
+      setAuthError('Clearing session data...');
+      
       // Sign out from Supabase (clears the session)
       await supabase.auth.signOut();
       
@@ -76,12 +95,15 @@ const Login = () => {
           .replace(/=.*/, `=;expires=${new Date().toUTCString()};path=/`);
       });
       
-      // Reload the page to ensure everything is fresh
-      window.location.reload();
+      setAuthError('Session data cleared. Please try signing in again.');
+      
+      // Wait a moment before allowing another attempt
+      setTimeout(() => {
+        setIsClearing(false);
+      }, 1000);
     } catch (error) {
       console.error('Error clearing cookies:', error);
       setAuthError('Failed to clear cookies. Please try clearing them manually.');
-    } finally {
       setIsClearing(false);
     }
   };
@@ -99,7 +121,7 @@ const Login = () => {
                 className="text-xs text-red-700 underline"
                 disabled={isClearing}
               >
-                {isClearing ? 'Clearing...' : 'Clear cookies and try again'}
+                {isClearing ? 'Clearing...' : 'Clear session data and try again'}
               </button>
             </div>
           </div>
@@ -116,6 +138,7 @@ const Login = () => {
               autoComplete="email"
               {...register('email')}
               aria-invalid={errors.email ? 'true' : 'false'}
+              disabled={isClearing}
             />
             {errors.email && (
               <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
@@ -134,6 +157,7 @@ const Login = () => {
               autoComplete="current-password"
               {...register('password')}
               aria-invalid={errors.password ? 'true' : 'false'}
+              disabled={isClearing}
             />
             {errors.password && (
               <p className="mt-1 text-sm text-red-600">{errors.password.message}</p>
@@ -148,6 +172,7 @@ const Login = () => {
               name="remember-me"
               type="checkbox"
               className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              disabled={isClearing}
             />
             <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
               Remember me

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { 
@@ -12,20 +12,76 @@ import {
   Menu, 
   X, 
   Bell,
-  ChevronDown
+  ChevronDown,
+  RefreshCw
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
+import { supabase } from '../lib/supabase';
 
 const DashboardLayout: React.FC = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, refreshSession } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Check for session issues on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        // Check if we have a session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking session in DashboardLayout:', error);
+          await signOut();
+          navigate('/login', { state: { authError: true } });
+          return;
+        }
+        
+        if (!session) {
+          console.warn('No session found in DashboardLayout');
+          navigate('/login', { state: { authError: true } });
+          return;
+        }
+        
+        if (!user) {
+          console.warn('Session exists but no user data in DashboardLayout');
+          // Try to refresh the session once
+          await refreshSession();
+        }
+      } catch (error) {
+        console.error('Unexpected error checking session in DashboardLayout:', error);
+      }
+    };
+    
+    checkSession();
+  }, [user, navigate, signOut, refreshSession]);
+
   const handleSignOut = async () => {
-    await signOut();
-    navigate('/login');
+    try {
+      await signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Force navigation to login even if signOut fails
+      navigate('/login');
+    }
+  };
+
+  const handleRefreshSession = async () => {
+    try {
+      setIsRefreshing(true);
+      await refreshSession();
+      // Show a brief success message or visual feedback
+      setTimeout(() => {
+        setIsRefreshing(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Error refreshing session:', error);
+      setIsRefreshing(false);
+    }
   };
 
   const isActivePath = (path: string) => {
@@ -43,6 +99,22 @@ const DashboardLayout: React.FC = () => {
   // Only show user management for admins
   if (user?.role === 'admin') {
     navigation.push({ name: 'Users', href: '/users', icon: Users });
+  }
+
+  // If no user data is available, show a loading state
+  if (!user) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mb-4"></div>
+        <p className="text-gray-600">Loading your dashboard...</p>
+        <button 
+          onClick={() => navigate('/login')} 
+          className="mt-4 text-blue-600 hover:text-blue-800 underline"
+        >
+          Return to login
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -148,7 +220,17 @@ const DashboardLayout: React.FC = () => {
               })}
             </nav>
           </div>
-          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+          <div className="flex-shrink-0 flex flex-col border-t border-gray-200 p-4 space-y-2">
+            <Button 
+              variant="outline" 
+              onClick={handleRefreshSession}
+              disabled={isRefreshing}
+              className="w-full flex items-center"
+            >
+              <RefreshCw className={`mr-3 h-5 w-5 text-gray-400 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>{isRefreshing ? 'Refreshing...' : 'Refresh Session'}</span>
+            </Button>
+            
             <Button 
               variant="ghost" 
               onClick={handleSignOut}
@@ -181,8 +263,20 @@ const DashboardLayout: React.FC = () => {
               {navigation.find(item => isActivePath(item.href))?.name || 'Dashboard'}
             </h1>
             
+            {/* Refresh button (visible on mobile) */}
+            <div className="md:hidden mr-4">
+              <button
+                onClick={handleRefreshSession}
+                disabled={isRefreshing}
+                className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                <span className="sr-only">Refresh session</span>
+                <RefreshCw className={`h-6 w-6 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+            
             {/* Notifications */}
-            <div className="ml-4 flex items-center md:ml-6">
+            <div className="flex items-center md:ml-6">
               <button
                 type="button"
                 className="p-1 rounded-full text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -225,10 +319,20 @@ const DashboardLayout: React.FC = () => {
                       <p className="text-gray-500 capitalize">{user?.role}</p>
                     </div>
                     <button
-                      onClick={handleSignOut}
-                      className="w-full text-left block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={handleRefreshSession}
+                      disabled={isRefreshing}
+                      className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       role="menuitem"
                     >
+                      <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      {isRefreshing ? 'Refreshing...' : 'Refresh Session'}
+                    </button>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      role="menuitem"
+                    >
+                      <LogOut className="mr-2 h-4 w-4" />
                       Sign out
                     </button>
                   </div>

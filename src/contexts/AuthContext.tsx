@@ -9,6 +9,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<{ error: any, user: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
+  refreshSession: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,52 +18,115 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [authError, setAuthError] = useState<Error | null>(null);
+
+  // Function to fetch user data from the users table
+  const fetchUserData = async (userId: string): Promise<User | null> => {
+    try {
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (userError) {
+        console.error('Error fetching user data:', userError);
+        return null;
+      }
+      
+      if (!userData) {
+        console.warn('No user data found for ID:', userId);
+        return null;
+      }
+      
+      return userData as User;
+    } catch (error) {
+      console.error('Unexpected error fetching user data:', error);
+      return null;
+    }
+  };
+
+  // Function to refresh the session and user data
+  const refreshSession = async (): Promise<void> => {
+    try {
+      setLoading(true);
+      
+      // Get current session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('Error refreshing session:', sessionError);
+        setUser(null);
+        return;
+      }
+      
+      if (!session) {
+        console.log('No active session found during refresh');
+        setUser(null);
+        return;
+      }
+      
+      // Fetch user data
+      const userData = await fetchUserData(session.user.id);
+      
+      if (!userData) {
+        console.warn('User data not found during refresh, signing out');
+        await supabase.auth.signOut();
+        setUser(null);
+        return;
+      }
+      
+      setUser(userData);
+    } catch (error) {
+      console.error('Error in refreshSession:', error);
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Get initial session
     const fetchSession = async () => {
       try {
+        setLoading(true);
+        
+        // Check for existing session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('Error fetching session:', sessionError);
+          setAuthError(sessionError);
+          setUser(null);
           setLoading(false);
+          setAuthInitialized(true);
           return;
         }
         
-        if (session?.user) {
-          try {
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-            
-            if (userError) {
-              console.error('Error fetching user data:', userError);
-              // If we can't get user data, clear the session to prevent loops
-              await supabase.auth.signOut();
-              setUser(null);
-            } else if (userData) {
-              setUser(userData as User);
-            } else {
-              // User exists in auth but not in users table
-              console.warn('User exists in auth but not in users table:', session.user.id);
-              // Clear the session to prevent loops
-              await supabase.auth.signOut();
-              setUser(null);
-            }
-          } catch (error) {
-            console.error('Unexpected error fetching user data:', error);
-            // Clear the session to prevent loops
-            await supabase.auth.signOut();
-            setUser(null);
-          }
-        } else {
+        if (!session) {
+          console.log('No active session found');
           setUser(null);
+          setLoading(false);
+          setAuthInitialized(true);
+          return;
+        }
+        
+        console.log('Session found, fetching user data for ID:', session.user.id);
+        
+        // Fetch user data
+        const userData = await fetchUserData(session.user.id);
+        
+        if (!userData) {
+          console.warn('User data not found, signing out');
+          await supabase.auth.signOut();
+          setUser(null);
+        } else {
+          console.log('User data found, setting user state');
+          setUser(userData);
         }
       } catch (error) {
         console.error('Unexpected error in fetchSession:', error);
+        setAuthError(error instanceof Error ? error : new Error('Unknown error'));
         setUser(null);
       } finally {
         setLoading(false);
@@ -78,37 +142,52 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('Auth state changed:', event, session?.user?.id);
         
         if (event === 'SIGNED_OUT') {
+          console.log('User signed out');
           setUser(null);
           setLoading(false);
           return;
         }
         
-        if (session?.user) {
+        if (event === 'SIGNED_IN' && session) {
+          console.log('User signed in, fetching user data');
+          setLoading(true);
+          
           try {
-            const { data: userData, error: userError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
+            const userData = await fetchUserData(session.user.id);
             
-            if (userError) {
-              console.error('Error fetching user data on auth change:', userError);
+            if (!userData) {
+              console.warn('User data not found after sign in, signing out');
+              await supabase.auth.signOut();
               setUser(null);
-            } else if (userData) {
-              setUser(userData as User);
             } else {
-              console.warn('User not found in users table on auth change:', session.user.id);
-              setUser(null);
+              console.log('User data found after sign in, setting user state');
+              setUser(userData);
             }
           } catch (error) {
-            console.error('Unexpected error fetching user data on auth change:', error);
+            console.error('Error fetching user data after sign in:', error);
+            await supabase.auth.signOut();
             setUser(null);
+          } finally {
+            setLoading(false);
           }
-        } else {
-          setUser(null);
         }
         
-        setLoading(false);
+        if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('Token refreshed, updating user data');
+          setLoading(true);
+          
+          try {
+            const userData = await fetchUserData(session.user.id);
+            
+            if (userData) {
+              setUser(userData);
+            }
+          } catch (error) {
+            console.error('Error updating user data after token refresh:', error);
+          } finally {
+            setLoading(false);
+          }
+        }
       }
     );
 
@@ -120,6 +199,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setLoading(true);
+      setAuthError(null);
+      
       // Clear any existing session first to prevent issues
       await supabase.auth.signOut();
       
@@ -132,19 +213,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Verify user exists in users table
       if (data.user) {
-        const { data: userData, error: userError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single();
+        const userData = await fetchUserData(data.user.id);
         
-        if (userError || !userData) {
+        if (!userData) {
           console.error('User not found in users table after sign in:', data.user.id);
           await supabase.auth.signOut();
           return { error: new Error('User account not found. Please contact support.') };
         }
         
-        setUser(userData as User);
+        setUser(userData);
+        return { error: null };
       }
       
       return { error: null };
@@ -159,6 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setLoading(true);
+      setAuthError(null);
       
       const { data, error } = await supabase.auth.signUp({ 
         email, 
@@ -189,6 +268,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Clean up auth user if profile creation fails
           await supabase.auth.signOut();
           return { error: profileError, user: null };
+        }
+
+        // Fetch the newly created user
+        const userData = await fetchUserData(data.user.id);
+        if (userData) {
+          setUser(userData);
         }
 
         return { error: null, user: data.user };
@@ -231,7 +316,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
-    resetPassword
+    resetPassword,
+    refreshSession
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
