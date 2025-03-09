@@ -47,7 +47,7 @@ const CreateBrief = () => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [approvers, setApprovers] = useState<User[]>([]);
   const [resourceConflict, setResourceConflict] = useState(false);
-  const [tradeshowConflict, setTradeshowConflict] = useState(false);
+  const [campaignConflict, setCampaignConflict] = useState(false);
   const [existingBrief, setExistingBrief] = useState<Brief | null>(null);
 
   const {
@@ -160,47 +160,31 @@ const CreateBrief = () => {
   // Check for resource conflicts when relevant fields change
   useEffect(() => {
     const checkConflicts = async () => {
-      if (!watchedResourceId || !watchedStartDate || !watchedDueDate) {
-        setResourceConflict(false);
-        setTradeshowConflict(false);
-        return;
-      }
-
+      if (!watchedResourceId || !watchedStartDate || !watchedDueDate) return;
+      
       try {
-        // Check resource allocation for this period
-        const { data: existingBriefs, error: briefsError } = await supabase
+        // Check for resource conflicts
+        const { data: conflictingBriefs, error: conflictError } = await supabase
           .from('briefs')
           .select('*')
           .eq('resource_id', watchedResourceId)
-          .or(`start_date.lte.${watchedDueDate},due_date.gte.${watchedStartDate}`);
+          .or(`start_date.lte.${watchedDueDate},due_date.gte.${watchedStartDate}`)
+          .not('id', 'eq', id || '');
         
-        if (briefsError) throw briefsError;
+        if (conflictError) throw conflictError;
         
-        // Check for tradeshows in this period
-        const { data: tradeshows, error: tradeshowsError } = await supabase
-          .from('tradeshows')
+        setResourceConflict(conflictingBriefs.length > 0);
+        
+        // Check for campaigns (tradeshows) in this period
+        const { data: campaigns, error: campaignsError } = await supabase
+          .from('campaigns')
           .select('*')
-          .or(`start_date.lte.${watchedDueDate},end_date.gte.${watchedStartDate}`);
+          .or(`start_date.lte.${watchedDueDate},end_date.gte.${watchedStartDate}`)
+          .eq('campaign_type', 'tradeshow');
         
-        if (tradeshowsError) throw tradeshowsError;
+        if (campaignsError) throw campaignsError;
         
-        // Calculate total allocated hours for this resource in this period
-        const totalAllocatedHours = existingBriefs.reduce(
-          (sum, brief) => sum + (brief.estimated_hours || 0), 
-          0
-        );
-        
-        // If more than 40 hours per week are allocated, show warning
-        const startDate = new Date(watchedStartDate);
-        const dueDate = new Date(watchedDueDate);
-        const days = (dueDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
-        const weeks = Math.ceil(days / 7);
-        const weeklyThreshold = 40;
-        
-        setResourceConflict(totalAllocatedHours > weeklyThreshold * weeks);
-        
-        // Check for tradeshow conflicts
-        setTradeshowConflict(tradeshows.length > 0);
+        setCampaignConflict(campaigns.length > 0);
       } catch (error) {
         console.error('Error checking conflicts:', error);
       }
@@ -209,7 +193,7 @@ const CreateBrief = () => {
     if (watchedResourceId && watchedStartDate && watchedDueDate) {
       checkConflicts();
     }
-  }, [watchedResourceId, watchedStartDate, watchedDueDate]);
+  }, [watchedResourceId, watchedStartDate, watchedDueDate, id]);
 
   const onSubmit = async (data: BriefFormData) => {
     if (!user) return;
@@ -291,6 +275,17 @@ const CreateBrief = () => {
       setError(error.message || `Failed to ${isEditMode ? 'update' : 'create'} brief. Please try again.`);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Handle cancel button click
+  const handleCancel = () => {
+    if (isEditMode && id) {
+      // Navigate back to brief detail page
+      navigate(`/briefs/${id}`);
+    } else {
+      // Navigate back to briefs list
+      navigate('/briefs');
     }
   };
 
@@ -434,10 +429,10 @@ const CreateBrief = () => {
                 </div>
               )}
               
-              {tradeshowConflict && (
+              {campaignConflict && (
                 <div className="mt-2 flex items-start gap-2 text-amber-600 text-sm">
                   <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                  <span>There are tradeshows during this time period that may require resources.</span>
+                  <span>There are campaigns during this time period that may require resources.</span>
                 </div>
               )}
             </div>
@@ -547,8 +542,35 @@ const CreateBrief = () => {
           </div>
         </div>
         
+        {/* Warnings */}
+        {resourceConflict && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2" />
+              <span>This resource is already assigned to another brief during this time period.</span>
+            </div>
+          </div>
+        )}
+        
+        {campaignConflict && (
+          <div className="mb-4 bg-yellow-50 border border-yellow-200 text-yellow-700 px-4 py-3 rounded relative">
+            <div className="flex">
+              <AlertTriangle className="h-5 w-5 text-yellow-400 mr-2" />
+              <span>There are campaigns during this time period that may require resources.</span>
+            </div>
+          </div>
+        )}
+        
         {/* Submit button */}
-        <div className="flex justify-end">
+        <div className="flex justify-end space-x-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancel}
+            className="px-4 py-2"
+          >
+            Cancel
+          </Button>
           <Button
             type="submit"
             disabled={loading}

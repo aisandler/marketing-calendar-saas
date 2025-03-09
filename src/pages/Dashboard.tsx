@@ -4,75 +4,69 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
-import { Calendar, FileText, Clock, AlertTriangle, ChevronRight, Plus } from 'lucide-react';
-import type { Brief, Tradeshow } from '../types';
+import { Calendar, FileText, Clock, AlertTriangle, ChevronRight, Plus, MapPin } from 'lucide-react';
+import type { Brief, Campaign, Resource } from '../types';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [briefs, setBriefs] = useState<Brief[]>([]);
-  const [tradeshows, setTradeshows] = useState<Tradeshow[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [stats, setStats] = useState({
     totalBriefs: 0,
     pendingApproval: 0,
     inProgress: 0,
     resourceConflicts: 0
   });
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         
         // Fetch briefs
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('*')
+          .select('*, campaigns(*), resources(*), users!briefs_created_by_fkey(*)')
           .order('due_date', { ascending: true })
           .limit(5);
         
         if (briefsError) throw briefsError;
         
-        // Fetch tradeshows
-        const today = new Date().toISOString().split('T')[0];
-        const { data: tradeshowsData, error: tradeshowsError } = await supabase
-          .from('tradeshows')
+        // Fetch campaigns (tradeshows)
+        const { data: campaignsData, error: campaignsError } = await supabase
+          .from('campaigns')
           .select('*')
-          .gte('end_date', today)
+          .gte('start_date', new Date().toISOString().split('T')[0])
           .order('start_date', { ascending: true })
-          .limit(3);
+          .eq('campaign_type', 'tradeshow')
+          .limit(5);
         
-        if (tradeshowsError) throw tradeshowsError;
+        if (campaignsError) throw campaignsError;
         
-        // Fetch stats
-        const { data: allBriefs, error: statsError } = await supabase
-          .from('briefs')
-          .select('status');
+        // Fetch resources
+        const { data: resourcesData, error: resourcesError } = await supabase
+          .from('resources')
+          .select('*');
         
-        if (statsError) throw statsError;
-        
-        // Calculate stats
-        const totalBriefs = allBriefs.length;
-        const pendingApproval = allBriefs.filter(b => b.status === 'pending_approval').length;
-        const inProgress = allBriefs.filter(b => b.status === 'in_progress').length;
+        if (resourcesError) throw resourcesError;
         
         // Set state
         setBriefs(briefsData as Brief[]);
-        setTradeshows(tradeshowsData as Tradeshow[]);
-        setStats({
-          totalBriefs,
-          pendingApproval,
-          inProgress,
-          resourceConflicts: 0 // This would require more complex calculation based on resource allocation
-        });
+        setCampaigns(campaignsData as Campaign[]);
+        setResources(resourcesData as Resource[]);
+        setLoading(false);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);
-      } finally {
+        setError('Failed to load dashboard data. Please try again.');
         setLoading(false);
       }
     };
     
-    fetchDashboardData();
+    fetchData();
   }, []);
 
   const today = new Date();
@@ -202,35 +196,34 @@ const Dashboard = () => {
 
       {/* Upcoming tradeshows */}
       <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Upcoming Tradeshows</h3>
-        {tradeshows.length > 0 ? (
-          <div className="divide-y divide-gray-200">
-            {tradeshows.map((tradeshow) => (
-              <div key={tradeshow.id} className="py-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">{tradeshow.name}</h4>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {formatDate(tradeshow.start_date)} - {formatDate(tradeshow.end_date)}
-                    </p>
-                  </div>
-                  <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
-                    Tradeshow
-                  </div>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Upcoming Campaigns</h3>
+        {campaigns.length > 0 ? (
+          <div className="space-y-4">
+            {campaigns.map((campaign) => (
+              <div key={campaign.id} className="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
+                <h4 className="font-medium text-gray-900">{campaign.name}</h4>
+                <div className="mt-1 flex items-center text-sm text-gray-500">
+                  <Calendar className="h-4 w-4 mr-1" />
+                  <span>
+                    {formatDate(campaign.start_date)} - {formatDate(campaign.end_date)}
+                  </span>
                 </div>
-                {tradeshow.description && (
-                  <p className="mt-2 text-sm text-gray-600">{tradeshow.description}</p>
+                {campaign.location && (
+                  <div className="mt-1 flex items-center text-sm text-gray-500">
+                    <MapPin className="h-4 w-4 mr-1" />
+                    <span>{campaign.location}</span>
+                  </div>
                 )}
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-4">No upcoming tradeshows.</p>
+          <p className="text-gray-500 text-center py-4">No upcoming campaigns.</p>
         )}
-        {tradeshows.length > 0 && (
-          <div className="mt-4">
-            <Link to="/tradeshows" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all tradeshows →
+        {campaigns.length > 0 && (
+          <div className="mt-4 text-right">
+            <Link to="/campaigns" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+              View all campaigns →
             </Link>
           </div>
         )}

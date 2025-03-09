@@ -79,7 +79,7 @@ marketing-calendar-saas/
 │   │   ├── CreateBrief.tsx  # Create brief page
 │   │   ├── Dashboard.tsx    # Dashboard page
 │   │   ├── ResourceManagement.tsx # Resource management page
-│   │   ├── TradeshowsList.tsx # Tradeshows list page
+│   │   ├── CampaignsList.tsx # Campaigns list page
 │   │   └── UserManagement.tsx # User management page
 │   ├── types/               # TypeScript type definitions
 │   │   ├── index.ts         # Common types
