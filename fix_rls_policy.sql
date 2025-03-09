@@ -1,6 +1,37 @@
--- Option 1: Temporarily disable RLS for the users table
--- This is the simplest approach for initial setup
+-- This script temporarily disables Row Level Security (RLS) to allow initial setup
+-- It should be run by an admin user
+
+-- Disable RLS for users table
 ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+
+-- Disable RLS for resources table
+ALTER TABLE public.resources DISABLE ROW LEVEL SECURITY;
+
+-- Disable RLS for briefs table
+ALTER TABLE public.briefs DISABLE ROW LEVEL SECURITY;
+
+-- Disable RLS for tradeshows table
+ALTER TABLE public.tradeshows DISABLE ROW LEVEL SECURITY;
+
+-- Disable RLS for campaigns table
+ALTER TABLE public.campaigns DISABLE ROW LEVEL SECURITY;
+
+-- Disable RLS for history table
+ALTER TABLE public.history DISABLE ROW LEVEL SECURITY;
+
+-- Create a function to re-enable RLS
+CREATE OR REPLACE FUNCTION public.enable_rls()
+RETURNS void AS $$
+BEGIN
+  -- Re-enable RLS for all tables
+  ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.briefs ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.tradeshows ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE public.history ENABLE ROW LEVEL SECURITY;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Option 2: Modify RLS policies to allow registration
 -- If you prefer to keep RLS enabled, use this approach instead of Option 1
