@@ -19,11 +19,24 @@ const fetchUserData = async (userId: string): Promise<User | null> => {
   try {
     console.log('Fetching user data for ID:', userId);
     
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    // Create a promise that rejects after a timeout
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      setTimeout(() => reject(new Error('Database query timed out')), 5000); // 5 second timeout
+    });
+    
+    // Race the actual query against the timeout
+    const result = await Promise.race([
+      supabase.from('users').select('*').eq('id', userId).single(),
+      timeoutPromise
+    ]) as { data: User | null, error: any } | null;
+    
+    // If we reach here and result is null, it means the timeout won
+    if (!result) {
+      console.error('Query timed out while fetching user data');
+      return null;
+    }
+    
+    const { data, error } = result;
     
     if (error) {
       console.error('Error fetching user data:', error);
@@ -67,7 +80,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session?.user?.id) {
           console.log('Session found, fetching user data');
+          
+          // Set a timeout to ensure we don't get stuck
+          const timeoutId = setTimeout(() => {
+            console.error('User data fetch timed out during initialization');
+            setUser(null);
+            setLoading(false);
+            setInitialized(true);
+          }, 8000); // 8 second timeout
+          
           const userData = await fetchUserData(session.user.id);
+          
+          // Clear the timeout since we got a response
+          clearTimeout(timeoutId);
           
           if (userData) {
             console.log('Setting user data from session');
@@ -101,8 +126,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setLoading(true);
           console.log('User signed in, fetching user data');
           
+          // Set a timeout to ensure we don't get stuck
+          const timeoutId = setTimeout(() => {
+            console.error('User data fetch timed out on auth state change');
+            setUser(null);
+            setLoading(false);
+          }, 8000); // 8 second timeout
+          
           try {
             const userData = await fetchUserData(session.user.id);
+            
+            // Clear the timeout since we got a response
+            clearTimeout(timeoutId);
             
             if (userData) {
               console.log('User data found, setting user state');
@@ -112,6 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setUser(null);
             }
           } catch (error) {
+            // Clear the timeout in case of error
+            clearTimeout(timeoutId);
             console.error('Error handling sign in:', error);
             setUser(null);
           } finally {
