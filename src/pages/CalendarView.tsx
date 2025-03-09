@@ -12,10 +12,24 @@ import type { Brief, Campaign } from '../types';
 
 // Helper function to ensure consistent date formatting for Gantt chart
 const formatDateForGantt = (dateString: string): string => {
-  // Parse the date string to ensure consistent format
-  const date = new Date(dateString);
-  // Format as YYYY-MM-DD which is what Gantt expects
-  return date.toISOString().split('T')[0];
+  try {
+    // Parse the date string to ensure consistent format
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      console.error('Invalid date:', dateString);
+      // Return today's date as fallback
+      return new Date().toISOString().split('T')[0];
+    }
+    
+    // Format as YYYY-MM-DD which is what Gantt expects
+    return date.toISOString().split('T')[0];
+  } catch (error) {
+    console.error('Error formatting date:', error);
+    // Return today's date as fallback
+    return new Date().toISOString().split('T')[0];
+  }
 };
 
 const CalendarView = () => {
@@ -26,6 +40,7 @@ const CalendarView = () => {
   const [resources, setResources] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('week');
+  const [isFixingDates, setIsFixingDates] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,14 +72,87 @@ const CalendarView = () => {
         
         if (resourcesError) throw resourcesError;
         
+        // Fix any corrupted dates in campaigns
+        const fixedCampaigns = (campaignsData || []).map(campaign => {
+          // Check if dates are in the distant past (likely corrupted)
+          const startDate = new Date(campaign.start_date);
+          const endDate = new Date(campaign.end_date);
+          
+          // If dates are before 2020, they're likely corrupted
+          if (startDate.getFullYear() < 2020 || endDate.getFullYear() < 2020) {
+            console.warn(`Found campaign with suspicious dates: ${campaign.name}`, {
+              original_start: campaign.start_date,
+              original_end: campaign.end_date
+            });
+            
+            // Create a corrected date in the current year
+            const currentYear = new Date().getFullYear();
+            const correctedStartMonth = startDate.getMonth();
+            const correctedStartDay = startDate.getDate();
+            const correctedEndMonth = endDate.getMonth();
+            const correctedEndDay = endDate.getDate();
+            
+            // Create new date objects with the current year but same month/day
+            const correctedStart = new Date(currentYear, correctedStartMonth, correctedStartDay);
+            const correctedEnd = new Date(currentYear, correctedEndMonth, correctedEndDay);
+            
+            // If end date is before start date after correction, add a year to end date
+            if (correctedEnd < correctedStart) {
+              correctedEnd.setFullYear(currentYear + 1);
+            }
+            
+            // Format as ISO strings
+            const fixedStartDate = correctedStart.toISOString().split('T')[0];
+            const fixedEndDate = correctedEnd.toISOString().split('T')[0];
+            
+            console.log(`Corrected dates for ${campaign.name}:`, {
+              fixed_start: fixedStartDate,
+              fixed_end: fixedEndDate
+            });
+            
+            // Update the campaign in the database
+            updateCampaignDates(campaign.id, fixedStartDate, fixedEndDate);
+            
+            return {
+              ...campaign,
+              start_date: fixedStartDate,
+              end_date: fixedEndDate
+            };
+          }
+          
+          return campaign;
+        });
+        
         // Set state
         setBriefs(briefsData as Brief[]);
-        setCampaigns(campaignsData as Campaign[]);
+        setCampaigns(fixedCampaigns as Campaign[]);
         setResources(resourcesData || []);
       } catch (error) {
         console.error('Error fetching calendar data:', error);
       } finally {
         setLoading(false);
+      }
+    };
+    
+    // Helper function to update campaign dates in the database
+    const updateCampaignDates = async (campaignId: string, startDate: string, endDate: string) => {
+      try {
+        const { error } = await supabase
+          .from('campaigns')
+          .update({
+            start_date: startDate,
+            end_date: endDate,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', campaignId);
+        
+        if (error) {
+          console.error(`Error updating campaign ${campaignId}:`, error);
+        } else {
+          console.log(`Successfully updated campaign ${campaignId} with corrected dates`);
+        }
+      } catch (error) {
+        console.error(`Error updating campaign ${campaignId}:`, error);
       }
     };
     
@@ -74,6 +162,9 @@ const CalendarView = () => {
   useEffect(() => {
     if (!ganttContainer.current || loading) return;
 
+    // Clear previous chart if it exists
+    (gantt as any).clearAll();
+
     // Initialize Gantt chart
     (gantt as any).init(ganttContainer.current);
     
@@ -82,6 +173,11 @@ const CalendarView = () => {
     (gantt as any).config.scale_height = 60;
     (gantt as any).config.min_column_width = 80;
     (gantt as any).config.duration_unit = "day";
+    
+    // Set current date as the initial date to display
+    const today = new Date();
+    (gantt as any).config.start_date = new Date(today.getFullYear(), today.getMonth(), 1);
+    (gantt as any).config.end_date = new Date(today.getFullYear(), today.getMonth() + 3, 0);
     
     // Fix for year selection in lightbox (date editor)
     // Set the year range to current year +/- 10 years
@@ -192,7 +288,7 @@ const CalendarView = () => {
           // Calculate duration in days
           const start = new Date(startDate);
           const end = new Date(endDate);
-          const durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
           
           return {
             id: brief.id,
@@ -218,7 +314,7 @@ const CalendarView = () => {
           // Calculate duration in days
           const start = new Date(startDate);
           const end = new Date(endDate);
-          const durationDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+          const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
           
           return {
             id: `campaign-${campaign.id}`,
@@ -229,7 +325,8 @@ const CalendarView = () => {
             progress: 0,
             priority: 'urgent',
             type: 'campaign',
-            campaign_type: campaign.campaign_type
+            campaign_type: campaign.campaign_type,
+            render: 'split'  // Use split rendering to ensure proper coloring
           };
         })
       ],
@@ -243,6 +340,9 @@ const CalendarView = () => {
       );
     }
     
+    // Log tasks for debugging
+    console.log('Tasks to render:', tasks.data);
+    
     // Initialize chart
     (gantt as any).parse(tasks);
     
@@ -253,47 +353,50 @@ const CalendarView = () => {
         border-radius: 4px;
       }
       .gantt_task_line.campaign-tradeshow {
-        background-color: #f87171;
-        border-color: #ef4444;
+        background-color: #f87171 !important;
+        border-color: #ef4444 !important;
       }
       .gantt_task_line.campaign-event {
-        background-color: #60a5fa;
-        border-color: #3b82f6;
+        background-color: #60a5fa !important;
+        border-color: #3b82f6 !important;
       }
       .gantt_task_line.campaign-digital_campaign {
-        background-color: #a78bfa;
-        border-color: #8b5cf6;
+        background-color: #a78bfa !important;
+        border-color: #8b5cf6 !important;
       }
       .gantt_task_line.campaign-product_launch {
-        background-color: #34d399;
-        border-color: #10b981;
+        background-color: #34d399 !important;
+        border-color: #10b981 !important;
       }
       .gantt_task_line.campaign-seasonal_promotion {
-        background-color: #fbbf24;
-        border-color: #f59e0b;
+        background-color: #fbbf24 !important;
+        border-color: #f59e0b !important;
       }
       .gantt_task_line.campaign-other {
-        background-color: #9ca3af;
-        border-color: #6b7280;
+        background-color: #9ca3af !important;
+        border-color: #6b7280 !important;
       }
       .gantt_task_line.high-priority-task {
-        background-color: #f87171;
-        border-color: #ef4444;
+        background-color: #f87171 !important;
+        border-color: #ef4444 !important;
       }
       .gantt_task_line.medium-priority-task {
-        background-color: #fbbf24;
-        border-color: #f59e0b;
+        background-color: #fbbf24 !important;
+        border-color: #f59e0b !important;
       }
       .gantt_task_line.low-priority-task {
-        background-color: #60a5fa;
-        border-color: #3b82f6;
+        background-color: #60a5fa !important;
+        border-color: #3b82f6 !important;
       }
       .gantt_task_line.normal-task {
-        background-color: #9ca3af;
-        border-color: #6b7280;
+        background-color: #9ca3af !important;
+        border-color: #6b7280 !important;
       }
     `;
     document.head.appendChild(style);
+    
+    // After rendering, scroll to today
+    (gantt as any).showDate(new Date());
     
     // Cleanup
     return () => {
@@ -302,8 +405,99 @@ const CalendarView = () => {
     };
   }, [briefs, campaigns, loading, viewMode, searchQuery]);
 
+  // Add a separate effect to reinitialize the chart when the component updates
+  useEffect(() => {
+    // This will run when the component mounts
+    return () => {
+      // This will run when the component unmounts
+      if (gantt) {
+        (gantt as any).clearAll();
+      }
+    };
+  }, []);
+
   const handleViewModeChange = (mode: 'day' | 'week' | 'month' | 'quarter' | 'year') => {
     setViewMode(mode);
+  };
+
+  // Function to manually fix all campaign dates
+  const handleFixAllDates = async () => {
+    try {
+      setIsFixingDates(true);
+      
+      // Fetch all campaigns
+      const { data: campaignsData, error: campaignsError } = await supabase
+        .from('campaigns')
+        .select('*');
+      
+      if (campaignsError) throw campaignsError;
+      
+      // Count of fixed campaigns
+      let fixedCount = 0;
+      
+      // Process each campaign
+      for (const campaign of campaignsData || []) {
+        // Check if dates are in the distant past (likely corrupted)
+        const startDate = new Date(campaign.start_date);
+        const endDate = new Date(campaign.end_date);
+        
+        // If dates are before 2020, they're likely corrupted
+        if (startDate.getFullYear() < 2020 || endDate.getFullYear() < 2020) {
+          // Create a corrected date in the current year
+          const currentYear = new Date().getFullYear();
+          const correctedStartMonth = startDate.getMonth();
+          const correctedStartDay = startDate.getDate();
+          const correctedEndMonth = endDate.getMonth();
+          const correctedEndDay = endDate.getDate();
+          
+          // Create new date objects with the current year but same month/day
+          const correctedStart = new Date(currentYear, correctedStartMonth, correctedStartDay);
+          const correctedEnd = new Date(currentYear, correctedEndMonth, correctedEndDay);
+          
+          // If end date is before start date after correction, add a year to end date
+          if (correctedEnd < correctedStart) {
+            correctedEnd.setFullYear(currentYear + 1);
+          }
+          
+          // Format as ISO strings
+          const fixedStartDate = correctedStart.toISOString().split('T')[0];
+          const fixedEndDate = correctedEnd.toISOString().split('T')[0];
+          
+          // Update the campaign in the database
+          const { error } = await supabase
+            .from('campaigns')
+            .update({
+              start_date: fixedStartDate,
+              end_date: fixedEndDate,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', campaign.id);
+          
+          if (!error) {
+            fixedCount++;
+          }
+        }
+      }
+      
+      // Refresh data
+      if (fixedCount > 0) {
+        // Fetch updated campaigns
+        const { data: updatedCampaigns } = await supabase
+          .from('campaigns')
+          .select('*');
+        
+        setCampaigns(updatedCampaigns as Campaign[]);
+        
+        alert(`Successfully fixed dates for ${fixedCount} campaigns. Please refresh the page to see the changes.`);
+      } else {
+        alert('No campaigns with corrupted dates were found.');
+      }
+    } catch (error) {
+      console.error('Error fixing campaign dates:', error);
+      alert('An error occurred while fixing campaign dates. Please check the console for details.');
+    } finally {
+      setIsFixingDates(false);
+    }
   };
 
   if (loading) {
@@ -398,6 +592,17 @@ const CalendarView = () => {
                 <span className="ml-2">List View</span>
               </Button>
             </Link>
+            
+            {/* Fix Dates Button */}
+            <Button 
+              variant="outline" 
+              className="px-3 py-2 text-amber-600 border-amber-300 hover:bg-amber-50"
+              onClick={handleFixAllDates}
+              disabled={isFixingDates}
+            >
+              <Calendar className="h-5 w-5" />
+              <span className="ml-2">{isFixingDates ? 'Fixing Dates...' : 'Fix Calendar Dates'}</span>
+            </Button>
           </div>
         </div>
       </div>
