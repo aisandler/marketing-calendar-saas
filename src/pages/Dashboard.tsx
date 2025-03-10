@@ -58,6 +58,61 @@ const Dashboard = () => {
         setBriefs(briefsData as Brief[]);
         setCampaigns(campaignsData as Campaign[]);
         setResources(resourcesData as Resource[]);
+        
+        // Calculate stats
+        if (briefsData) {
+          const totalBriefs = briefsData.length;
+          const pendingApproval = briefsData.filter(brief => brief.status === 'pending_approval').length;
+          const inProgress = briefsData.filter(brief => brief.status === 'in_progress').length;
+          
+          // Count resource conflicts - briefs with same resource and overlapping dates
+          let resourceConflicts = 0;
+          const resourceMap = new Map();
+          
+          briefsData.forEach(brief => {
+            if (brief.resource_id) {
+              const key = brief.resource_id;
+              if (!resourceMap.has(key)) {
+                resourceMap.set(key, []);
+              }
+              resourceMap.get(key).push({
+                start: new Date(brief.start_date),
+                end: new Date(brief.due_date),
+                id: brief.id
+              });
+            }
+          });
+          
+          // Check for overlapping date ranges
+          resourceMap.forEach(briefs => {
+            if (briefs.length > 1) {
+              for (let i = 0; i < briefs.length; i++) {
+                for (let j = i + 1; j < briefs.length; j++) {
+                  const a = briefs[i];
+                  const b = briefs[j];
+                  if ((a.start <= b.end) && (a.end >= b.start)) {
+                    resourceConflicts++;
+                  }
+                }
+              }
+            }
+          });
+          
+          setStats({
+            totalBriefs,
+            pendingApproval,
+            inProgress,
+            resourceConflicts
+          });
+          
+          console.log('Dashboard stats calculated:', {
+            totalBriefs,
+            pendingApproval,
+            inProgress,
+            resourceConflicts
+          });
+        }
+        
         setLoading(false);
       } catch (error) {
         console.error('Error fetching dashboard data:', error);

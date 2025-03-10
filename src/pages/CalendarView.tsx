@@ -47,23 +47,31 @@ const CalendarView = () => {
       try {
         setLoading(true);
         
-        // Fetch briefs with related data
+        // Fetch all briefs with no limit
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select(`
-            *,
-            campaigns(*),
-            resources(*)
-          `);
+          .select('*');
         
         if (briefsError) throw briefsError;
         
-        // Fetch campaigns
+        // Debug log
+        console.log('Briefs fetched:', briefsData?.length || 0);
+        if (briefsData?.length > 0) {
+          console.log('Sample brief:', briefsData[0]);
+        }
+        
+        // Fetch all campaigns with no limit
         const { data: campaignsData, error: campaignsError } = await supabase
           .from('campaigns')
           .select('*');
         
         if (campaignsError) throw campaignsError;
+        
+        // Debug log
+        console.log('Campaigns fetched:', campaignsData?.length || 0);
+        if (campaignsData?.length > 0) {
+          console.log('Sample campaign:', campaignsData[0]);
+        }
         
         // Fetch resources
         const { data: resourcesData, error: resourcesError } = await supabase
@@ -124,9 +132,12 @@ const CalendarView = () => {
         });
         
         // Set state
-        setBriefs(briefsData as Brief[]);
-        setCampaigns(fixedCampaigns as Campaign[]);
+        setBriefs(briefsData as Brief[] || []);
+        setCampaigns(fixedCampaigns as Campaign[] || []);
         setResources(resourcesData || []);
+        
+        // Debug log
+        console.log('State set with briefs:', briefsData?.length || 0, 'campaigns:', fixedCampaigns?.length || 0);
       } catch (error) {
         console.error('Error fetching calendar data:', error);
       } finally {
@@ -160,7 +171,15 @@ const CalendarView = () => {
   }, []);
 
   useEffect(() => {
-    if (!ganttContainer.current || loading) return;
+    if (!ganttContainer.current || loading) {
+      console.log('Gantt container not ready or still loading');
+      return;
+    }
+
+    console.log('Initializing Gantt chart with data', { 
+      briefs: briefs.length, 
+      campaigns: campaigns.length 
+    });
 
     // Clear previous chart if it exists
     (gantt as any).clearAll();
@@ -252,45 +271,64 @@ const CalendarView = () => {
     ];
     
     // Custom styling for campaigns based on type
-    (gantt as any).templates.task_class = (start: Date, end: Date, task: any) => {
+    (gantt as any).templates.task_class = function(start: Date, end: Date, task: any) {
       if (task.type === 'campaign') {
         return `campaign-task campaign-${task.campaign_type}`;
+      } else if (task.priority) {
+        return `${task.priority}-priority-task`;
       }
-      
-      if (task.priority === 'urgent') {
-        return 'high-priority-task';
-      } else if (task.priority === 'high') {
-        return 'medium-priority-task';
-      } else if (task.priority === 'medium') {
-        return 'low-priority-task';
-      } else {
-        return 'normal-task';
-      }
+      return 'normal-task';
     };
     
-    // Add campaigns to tasks
-    const tasks = {
-      data: [
-        ...briefs.filter(brief => {
-          // Filter briefs based on search query
-          if (searchQuery) {
-            return (
-              brief.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-              brief.description?.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-          }
-          return true;
-        }).map(brief => {
+    // Create tasks data structure with proper type checking
+    interface GanttTask {
+      id: string;
+      text: string;
+      start_date: string;
+      end_date: string;
+      duration: number;
+      progress: number;
+      priority: string;
+      resource?: string | null;
+      campaign_id?: string | null;
+      type?: string;
+      campaign_type?: string;
+      render?: string;
+    }
+
+    const tasksData: GanttTask[] = [];
+    
+    // Add briefs to tasks
+    if (briefs && briefs.length > 0) {
+      console.log('Adding briefs to Gantt chart:', briefs.length);
+      
+      briefs.filter(brief => {
+        // Filter briefs based on search query
+        if (searchQuery) {
+          return (
+            brief.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            brief.description?.toLowerCase().includes(searchQuery.toLowerCase())
+          );
+        }
+        return true;
+      }).forEach(brief => {
+        try {
           // Format dates consistently for Gantt chart
           const startDate = formatDateForGantt(brief.start_date);
           const endDate = formatDateForGantt(brief.due_date);
+          
+          // Debug for dates
+          console.log(`Brief ${brief.id} dates:`, { 
+            original: { start: brief.start_date, end: brief.due_date },
+            formatted: { start: startDate, end: endDate }
+          });
           
           // Calculate duration in days
           const start = new Date(startDate);
           const end = new Date(endDate);
           const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
           
-          return {
+          tasksData.push({
             id: brief.id,
             text: brief.title,
             start_date: startDate,
@@ -304,19 +342,37 @@ const CalendarView = () => {
             priority: brief.priority,
             resource: brief.resource_id,
             campaign_id: brief.campaign_id
-          };
-        }),
-        ...campaigns.map(campaign => {
+          });
+        } catch (error) {
+          console.error('Error adding brief to Gantt chart:', error, { brief });
+        }
+      });
+    } else {
+      console.warn('No briefs available for Gantt chart');
+    }
+    
+    // Add campaigns to tasks
+    if (campaigns && campaigns.length > 0) {
+      console.log('Adding campaigns to Gantt chart:', campaigns.length);
+      
+      campaigns.forEach(campaign => {
+        try {
           // Format dates consistently for Gantt chart
           const startDate = formatDateForGantt(campaign.start_date);
           const endDate = formatDateForGantt(campaign.end_date);
+          
+          // Debug for dates
+          console.log(`Campaign ${campaign.id} dates:`, { 
+            original: { start: campaign.start_date, end: campaign.end_date },
+            formatted: { start: startDate, end: endDate }
+          });
           
           // Calculate duration in days
           const start = new Date(startDate);
           const end = new Date(endDate);
           const durationDays = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
           
-          return {
+          tasksData.push({
             id: `campaign-${campaign.id}`,
             text: `${campaign.campaign_type.charAt(0).toUpperCase() + campaign.campaign_type.slice(1)}: ${campaign.name}`,
             start_date: startDate,
@@ -327,9 +383,17 @@ const CalendarView = () => {
             type: 'campaign',
             campaign_type: campaign.campaign_type,
             render: 'split'  // Use split rendering to ensure proper coloring
-          };
-        })
-      ],
+          });
+        } catch (error) {
+          console.error('Error adding campaign to Gantt chart:', error, { campaign });
+        }
+      });
+    } else {
+      console.warn('No campaigns available for Gantt chart');
+    }
+    
+    const tasks = {
+      data: tasksData,
       links: []
     };
     
@@ -341,10 +405,54 @@ const CalendarView = () => {
     }
     
     // Log tasks for debugging
-    console.log('Tasks to render:', tasks.data);
+    console.log('Tasks to render:', tasks.data.length, 'items');
+    if (tasks.data.length === 0) {
+      console.warn('No tasks to display in Gantt chart');
+    } else {
+      console.log('First 3 task samples:', tasks.data.slice(0, 3));
+    }
     
-    // Initialize chart
-    (gantt as any).parse(tasks);
+    // Add some sample tasks for testing if no real tasks are available
+    if (tasks.data.length === 0) {
+      console.log('Adding sample tasks for testing');
+      
+      const today = new Date();
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      
+      tasks.data.push({
+        id: 'sample-1',
+        text: 'Sample Task 1',
+        start_date: today.toISOString().split('T')[0],
+        end_date: tomorrow.toISOString().split('T')[0],
+        duration: 1,
+        progress: 0.5,
+        priority: 'high'
+      });
+      
+      tasks.data.push({
+        id: 'sample-2',
+        text: 'Sample Task 2',
+        start_date: tomorrow.toISOString().split('T')[0],
+        end_date: nextWeek.toISOString().split('T')[0],
+        duration: 7,
+        progress: 0.2,
+        priority: 'medium'
+      });
+      
+      console.log('Added sample tasks:', tasks.data);
+    }
+    
+    // Initialize chart with tasks data
+    try {
+      (gantt as any).parse(tasks);
+      console.log('Gantt chart initialized successfully');
+    } catch (error) {
+      console.error('Error initializing Gantt chart:', error);
+    }
     
     // Add custom CSS for campaign types
     const style = document.createElement('style');
@@ -395,8 +503,15 @@ const CalendarView = () => {
     `;
     document.head.appendChild(style);
     
-    // After rendering, scroll to today
-    (gantt as any).showDate(new Date());
+    // After rendering, try to ensure visibility by updating layout
+    setTimeout(() => {
+      try {
+        (gantt as any).render();
+        console.log('Forced Gantt chart re-render');
+      } catch (error) {
+        console.error('Error re-rendering Gantt chart:', error);
+      }
+    }, 500);
     
     // Cleanup
     return () => {
@@ -637,11 +752,44 @@ const CalendarView = () => {
       </div>
 
       {/* Gantt Chart */}
-      <div className="bg-white shadow rounded-lg p-4">
-        <div ref={ganttContainer} style={{ height: '600px', width: '100%' }} />
+      <div className="bg-white shadow rounded-lg p-4 overflow-x-auto">
+        <div 
+          ref={ganttContainer} 
+          style={{ 
+            height: '600px', 
+            width: '100%', 
+            minWidth: '800px' 
+          }} 
+          className="gantt-container"
+        />
       </div>
     </div>
   );
 };
+
+// Add this CSS to fix styling issues
+const fixGanttStyles = () => {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    .gantt-container {
+      position: relative;
+      overflow: visible;
+    }
+    .gantt_task_line {
+      border-radius: 4px !important;
+      height: 14px !important;
+    }
+    .gantt_grid_data .gantt_cell {
+      padding: 5px 6px;
+    }
+    .gantt_grid_head_cell {
+      padding: 5px 6px;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+// Execute once when component is first loaded
+fixGanttStyles();
 
 export default CalendarView;
