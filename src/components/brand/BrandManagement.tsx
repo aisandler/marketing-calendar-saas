@@ -5,6 +5,7 @@ import { useBrand } from '../../contexts/BrandContext';
 import { useToast } from '../../contexts/ToastContext';
 import { BrandList } from './BrandList';
 import { BrandForm } from './BrandForm';
+import { withErrorBoundary } from '../../components/ErrorBoundary';
 
 export function BrandManagement() {
   const { createBrand, updateBrand } = useBrand();
@@ -81,4 +82,6 @@ export function BrandManagement() {
       )}
     </div>
   );
-} 
+}
+
+export default withErrorBoundary(BrandManagement, 'BrandManagement'); 

@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Plus, Edit, Trash, Download, UserCog, Shield, UserCircle, UserPlus } from 'lucide-react';
 import type { User } from '../types';
+import { withErrorBoundary } from '../components/ErrorBoundary';
 
 const UserManagement = () => {
   const { user: currentUser } = useAuth();
@@ -317,4 +318,4 @@ const UserManagement = () => {
   );
 };
 
-export default UserManagement;
+export default withErrorBoundary(UserManagement, 'UserManagement');

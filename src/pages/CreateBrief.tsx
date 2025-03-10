@@ -5,10 +5,12 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from '../contexts/ToastContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { AlertTriangle } from 'lucide-react';
 import type { User, Resource, Brief } from '../types';
+import { withErrorBoundary } from '../components/ErrorBoundary';
 
 const briefSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -592,4 +594,4 @@ const CreateBrief = () => {
   );
 };
 
-export default CreateBrief;
+export default withErrorBoundary(CreateBrief, 'CreateBrief');

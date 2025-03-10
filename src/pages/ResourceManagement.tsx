@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Plus, Edit, Trash, Users, Download } from 'lucide-react';
 import type { Resource, Brief } from '../types';
+import { withErrorBoundary } from '../components/ErrorBoundary';
 
 const ResourceManagement = () => {
   const { user } = useAuth();
@@ -479,4 +480,4 @@ const ResourceManagement = () => {
   );
 };
 
-export default ResourceManagement;
+export default withErrorBoundary(ResourceManagement, 'ResourceManagement');
