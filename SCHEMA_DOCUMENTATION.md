@@ -9,6 +9,7 @@ This document provides a comprehensive overview of the database schema for the M
 3. [Campaigns](#campaigns)
 4. [Briefs](#briefs)
 5. [Entity Relationship Diagram](#entity-relationship-diagram)
+6. [Brands Table](#brands-table)
 
 ## Users
 
@@ -141,3 +142,168 @@ The application uses Supabase Row Level Security to control access to data based
 - When creating a new brief, the `status` field defaults to 'draft' and the `priority` field defaults to 'medium'
 - The `campaign_id` field in the `briefs` table establishes the relationship between briefs and campaigns
 - The `specifications` field in the `briefs` table uses JSONB to store structured data that may vary between different types of briefs 
+
+## Brands Table
+
+The `brands` table stores information about brands in the marketing calendar system.
+
+### Schema
+
+```sql
+CREATE TABLE brands (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    code TEXT NOT NULL,
+    color TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_brand_code UNIQUE(code)
+);
+```
+
+### Fields
+
+| Field | Type | Description | Constraints |
+|-------|------|-------------|-------------|
+| id | UUID | Unique identifier | Primary key, auto-generated |
+| name | TEXT | Brand name | Not null |
+| code | TEXT | Unique brand code | Not null, unique |
+| color | TEXT | Brand color (hex format) | Not null |
+| created_at | TIMESTAMPTZ | Creation timestamp | Auto-generated |
+| updated_at | TIMESTAMPTZ | Last update timestamp | Auto-generated |
+
+### Indexes
+
+```sql
+CREATE INDEX idx_brands_code ON brands (code);
+CREATE INDEX idx_brands_name ON brands (name);
+```
+
+### Triggers
+
+```sql
+-- Update the updated_at timestamp
+CREATE TRIGGER set_timestamp
+    BEFORE UPDATE ON brands
+    FOR EACH ROW
+    EXECUTE FUNCTION trigger_set_timestamp();
+```
+
+### Row Level Security (RLS)
+
+```sql
+-- Enable RLS
+ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
+
+-- Allow read access to all authenticated users
+CREATE POLICY "Allow read access to all authenticated users"
+ON brands FOR SELECT
+TO authenticated
+USING (true);
+
+-- Allow create access to users with admin role
+CREATE POLICY "Allow create access to admins"
+ON brands FOR INSERT
+TO authenticated
+WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- Allow update access to users with admin role
+CREATE POLICY "Allow update access to admins"
+ON brands FOR UPDATE
+TO authenticated
+USING (auth.jwt() ->> 'role' = 'admin')
+WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- Allow delete access to users with admin role
+CREATE POLICY "Allow delete access to admins"
+ON brands FOR DELETE
+TO authenticated
+USING (auth.jwt() ->> 'role' = 'admin');
+```
+
+### Relationships
+
+```mermaid
+erDiagram
+    brands ||--o{ briefs : "has many"
+    brands {
+        uuid id PK
+        text name
+        text code UK
+        text color
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    briefs {
+        uuid id PK
+        uuid brand_id FK
+        text title
+        text description
+        timestamptz start_date
+        timestamptz end_date
+    }
+```
+
+### Validation Rules
+
+1. Brand Code:
+   - 2-10 characters
+   - Uppercase letters and numbers only
+   - Must be unique
+
+2. Brand Name:
+   - 1-100 characters
+   - Any valid text
+
+3. Brand Color:
+   - Valid hex color code (#RRGGBB)
+
+### Example Queries
+
+1. Get all brands with their brief count:
+```sql
+SELECT 
+    b.*,
+    COUNT(br.id) as brief_count
+FROM brands b
+LEFT JOIN briefs br ON br.brand_id = b.id
+GROUP BY b.id
+ORDER BY b.name;
+```
+
+2. Find duplicate brand codes (for validation):
+```sql
+SELECT code, COUNT(*)
+FROM brands
+GROUP BY code
+HAVING COUNT(*) > 1;
+```
+
+3. Get brands with recent activity:
+```sql
+SELECT DISTINCT b.*
+FROM brands b
+JOIN briefs br ON br.brand_id = b.id
+WHERE br.updated_at > NOW() - INTERVAL '7 days'
+ORDER BY b.name;
+```
+
+### Migration History
+
+1. Initial creation:
+```sql
+-- From: migrations/01_create_brands.sql
+CREATE TABLE brands (...);
+```
+
+2. Added indexes:
+```sql
+-- From: migrations/02_add_brand_indexes.sql
+CREATE INDEX idx_brands_code ON brands (code);
+```
+
+3. Added RLS policies:
+```sql
+-- From: migrations/03_add_brand_rls.sql
+ALTER TABLE brands ENABLE ROW LEVEL SECURITY;
+``` 

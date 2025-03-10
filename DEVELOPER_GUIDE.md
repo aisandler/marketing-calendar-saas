@@ -14,9 +14,11 @@ This guide provides detailed technical information for developers working on the
 - [Form Handling](#form-handling)
 - [API Integration](#api-integration)
 - [Common Development Tasks](#common-development-tasks)
+- [Development Workflows](#development-workflows)
 - [Testing](#testing)
 - [Performance Considerations](#performance-considerations)
 - [Known Issues and Workarounds](#known-issues-and-workarounds)
+- [Brand Management System](#brand-management-system)
 
 ## Architecture Overview
 
@@ -75,9 +77,14 @@ The Marketing Calendar SaaS application follows a modern React architecture with
 3. Set up environment variables:
    - Create a `.env` file in the root directory
    - Add the following variables:
-     ```
+     ```bash
+     # Required
      VITE_SUPABASE_URL=your_supabase_url
      VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+     
+     # Optional for development
+     VITE_API_MOCKING=true  # Enable API mocking for development
+     VITE_DEBUG_MODE=true   # Enable additional logging
      ```
 
 4. Start the development server:
@@ -85,7 +92,26 @@ The Marketing Calendar SaaS application follows a modern React architecture with
    npm run dev
    ```
 
-### Supabase Setup
+### Local Supabase Setup
+
+1. Install Supabase CLI:
+   ```bash
+   npm install -g supabase
+   ```
+
+2. Start local Supabase:
+   ```bash
+   supabase start
+   ```
+
+3. Use the provided local URLs and keys in your `.env` file
+
+4. Initialize the database:
+   ```bash
+   supabase db reset
+   ```
+
+### Supabase Cloud Setup
 
 1. Create a Supabase account at [https://app.supabase.com](https://app.supabase.com)
 2. Create a new project
@@ -436,6 +462,74 @@ const { error } = await supabase
 3. Add the table type to `src/types/supabase.ts`
 4. Set up appropriate RLS policies
 
+## Development Workflows
+
+### Adding New Features
+
+1. Create a new branch from `main`:
+   ```bash
+   git checkout -b feature/[feature-name]
+   ```
+2. Implement the feature
+3. Add tests if applicable
+4. Create a PR with the following information:
+   - Feature description
+   - Testing steps
+   - Screenshots (if UI changes)
+
+### Running Tests Locally
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npm test -- [test-file-name]
+
+# Run tests in watch mode
+npm test -- --watch
+```
+
+### Branch Naming Conventions
+
+- Features: `feature/[feature-name]`
+- Bugs: `fix/[bug-name]`
+- Documentation: `docs/[doc-name]`
+- Chore: `chore/[chore-name]`
+- Refactor: `refactor/[refactor-name]`
+
+### PR Review Process
+
+1. Self-review checklist:
+   - All tests passing
+   - No console errors
+   - Follows coding standards
+   - Includes documentation updates
+   - Responsive design tested
+   - Accessibility checked
+   - Browser compatibility verified
+
+2. Request review:
+   - Assign at least one team member
+   - Add relevant labels
+   - Link related issues
+
+3. Review feedback:
+   - Address all comments
+   - Request re-review after changes
+   - Update tests if needed
+
+4. Merge requirements:
+   - All discussions resolved
+   - CI checks passing
+   - At least one approval
+   - No merge conflicts
+
+5. Post-merge:
+   - Delete feature branch
+   - Update ticket status
+   - Deploy if needed
+
 ## Testing
 
 The application currently doesn't have automated tests, but here's how you could add them:
@@ -514,6 +608,194 @@ When setting up the application for the first time, RLS policies can prevent the
 1. Temporarily disable RLS using the `fix_rls_policy.sql` script
 2. Create the initial admin user
 3. Re-enable RLS with proper policies
+
+## Brand Management System
+
+The brand management system allows users to create, update, delete, and manage brands within the application. It's implemented using React components with TypeScript and follows a context-based state management pattern.
+
+### Brand Components
+
+Located in `src/components/brand/`, the brand management system consists of the following components:
+
+1. **BrandManagement**: Main component that orchestrates brand management
+   ```typescript
+   // Usage
+   <BrandManagement />
+   ```
+   - Manages form visibility and editing state
+   - Handles create/update operations
+   - Provides the main UI container
+
+2. **BrandForm**: Form component for creating/editing brands
+   ```typescript
+   interface BrandFormProps {
+     brand?: Brand;
+     onSubmit: (data: CreateBrandInput) => Promise<void>;
+     onCancel: () => void;
+   }
+   ```
+   - Uses React Hook Form with Zod validation
+   - Handles brand code validation
+   - Provides color selection interface
+
+3. **ColorPicker**: Reusable color selection component
+   ```typescript
+   interface ColorPickerProps {
+     value: string;
+     onChange: (color: string) => void;
+   }
+   ```
+   - Offers predefined color palette
+   - Supports custom color input
+   - Uses HeadlessUI's Popover for the dropdown
+
+4. **BrandCodeValidator**: Real-time brand code validation
+   ```typescript
+   interface BrandCodeValidatorProps {
+     code: string;
+     onValidation: (isValid: boolean) => void;
+   }
+   ```
+   - Provides real-time validation feedback
+   - Debounces validation requests
+   - Shows loading and validation states
+
+5. **BrandList**: Displays and manages existing brands
+   ```typescript
+   interface BrandListProps {
+     onEdit: (brand: Brand) => void;
+   }
+   ```
+   - Lists all brands with their details
+   - Handles delete operations
+   - Provides edit functionality
+
+### Brand Context
+
+The `BrandContext` (`src/contexts/BrandContext.tsx`) manages the global state and operations for brands:
+
+```typescript
+interface BrandContextType {
+  brands: Brand[];
+  loading: boolean;
+  error: string | null;
+  createBrand: (brand: CreateBrandInput) => Promise<void>;
+  updateBrand: (brand: UpdateBrandInput) => Promise<void>;
+  deleteBrand: (id: string) => Promise<void>;
+  validateBrandCode: (code: string) => Promise<boolean>;
+}
+```
+
+Usage:
+```typescript
+// Wrap your app with BrandProvider
+<BrandProvider>
+  <App />
+</BrandProvider>
+
+// Use brand context in components
+const { brands, createBrand, updateBrand, deleteBrand } = useBrand();
+```
+
+### Brand Types
+
+Located in `src/types/brand.ts`:
+
+```typescript
+interface Brand {
+  id: string;
+  name: string;
+  code: string;
+  color: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface CreateBrandInput {
+  name: string;
+  code: string;
+  color: string;
+}
+
+interface UpdateBrandInput extends Partial<CreateBrandInput> {
+  id: string;
+}
+```
+
+### Database Schema Updates
+
+The brands table in PostgreSQL:
+
+```sql
+CREATE TABLE brands (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    code TEXT NOT NULL,
+    color TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    CONSTRAINT unique_brand_code UNIQUE(code)
+);
+```
+
+### Form Validation Rules
+
+Brand form validation using Zod:
+
+```typescript
+const brandSchema = z.object({
+  name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
+  code: z
+    .string()
+    .min(2, 'Code must be at least 2 characters')
+    .max(10, 'Code must be at most 10 characters')
+    .regex(/^[A-Z0-9]+$/, 'Code must contain only uppercase letters and numbers'),
+  color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
+});
+```
+
+### Testing
+
+Brand management components should be tested for:
+
+1. Form validation
+2. Brand code uniqueness validation
+3. Color picker functionality
+4. CRUD operations
+5. Error handling
+6. Loading states
+
+Example test structure:
+```typescript
+describe('BrandManagement', () => {
+  it('should create a new brand successfully');
+  it('should validate brand code uniqueness');
+  it('should handle brand updates');
+  it('should handle brand deletion');
+  it('should display error messages');
+});
+```
+
+### Error Handling
+
+The brand management system handles errors at multiple levels:
+
+1. Form-level validation errors
+2. API-level errors (create, update, delete operations)
+3. Brand code validation errors
+4. Network errors
+
+Errors are displayed to users through:
+- Form validation messages
+- Toast notifications (for API errors)
+- Inline validation feedback
+
+### Performance Considerations
+
+1. Brand code validation is debounced (500ms)
+2. Color picker uses a Popover for better performance
+3. Brand list uses optimistic updates
+4. Context provides caching of brand data
 
 ---
 

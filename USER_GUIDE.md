@@ -43,6 +43,15 @@ Welcome to the Marketing Calendar SaaS application! This guide will help you nav
 - [Troubleshooting](#troubleshooting)
   - [Common Issues](#common-issues)
   - [Getting Help](#getting-help)
+- [Brand Management](#brand-management)
+  - [Accessing Brand Management](#accessing-brand-management)
+  - [Creating a New Brand](#creating-a-new-brand)
+  - [Managing Existing Brands](#managing-existing-brands)
+  - [Brand Code Validation](#brand-code-validation)
+  - [Color Selection](#color-selection)
+  - [Troubleshooting](#brand-management-troubleshooting)
+  - [Best Practices](#best-practices)
+  - [Keyboard Shortcuts](#keyboard-shortcuts)
 
 ## Getting Started
 
@@ -389,6 +398,110 @@ If you encounter issues not covered in this guide:
 1. Click the "Help" icon in the bottom-left corner
 2. Check the FAQ section
 3. Use the "Contact Support" option to send a message to your administrator
+
+## Brand Management
+
+The brand management system allows you to create and manage brands for your marketing calendar. Each brand has a unique code, name, and color that helps identify and organize marketing briefs.
+
+### Accessing Brand Management
+
+1. Navigate to the Brand Management page from the sidebar menu
+2. You'll see a list of existing brands (if any) and an "Add Brand" button
+
+### Creating a New Brand
+
+1. Click the "Add Brand" button
+2. Fill in the brand details:
+   - **Name**: The full name of the brand (e.g., "Display Dispensary")
+   - **Code**: A unique identifier (2-10 characters, uppercase letters and numbers only)
+   - **Color**: Choose from predefined colors or pick a custom color
+
+Tips for creating brands:
+- Brand codes must be unique across your organization
+- Choose distinct colors for easy visual identification
+- Use meaningful codes that are easy to remember
+
+### Managing Existing Brands
+
+#### Viewing Brands
+- All brands are listed with their name, code, and color indicator
+- Brands are sorted alphabetically by name
+- Each brand shows edit and delete options (admin only)
+
+#### Editing a Brand
+1. Click the edit (pencil) icon next to the brand
+2. Modify the brand details
+3. Click "Update Brand" to save changes
+4. The brand code validator will check if your new code is available
+
+#### Deleting a Brand
+1. Click the delete (trash) icon next to the brand
+2. Confirm the deletion
+Note: Deleting a brand will not delete associated briefs
+
+### Brand Code Validation
+
+When creating or editing a brand:
+- The code is checked in real-time for availability
+- A green checkmark indicates the code is available
+- A red X indicates the code is already taken
+- Validation occurs after you stop typing (500ms delay)
+
+### Color Selection
+
+The color picker offers two ways to choose colors:
+1. **Predefined Colors**: Click any color in the palette
+2. **Custom Colors**: Use the color picker to select any color
+
+Tips for color selection:
+- Use distinct colors for different brands
+- Consider using your brand's official colors
+- Ensure good contrast with white text
+- Preview how the color looks in the selector
+
+### Troubleshooting
+
+Common issues and solutions:
+
+1. **Code Already Taken**
+   - Try a different code
+   - Codes are case-sensitive
+   - Check for spaces or special characters
+
+2. **Can't Delete a Brand**
+   - Ensure you have admin privileges
+   - Check if briefs are using the brand
+   - Try refreshing the page
+
+3. **Color Not Updating**
+   - Make sure to click outside the color picker
+   - Check if the color format is valid (#RRGGBB)
+   - Try selecting a predefined color first
+
+### Best Practices
+
+1. **Brand Codes**
+   - Use meaningful abbreviations
+   - Keep codes short but recognizable
+   - Use consistent patterns (e.g., "DD" for Display Dispensary)
+
+2. **Colors**
+   - Use brand-specific colors when possible
+   - Ensure colors are visually distinct
+   - Consider color-blind accessibility
+
+3. **Organization**
+   - Create brands before adding briefs
+   - Use consistent naming conventions
+   - Document color choices for reference
+
+### Keyboard Shortcuts
+
+When managing brands:
+- `Esc`: Close the brand form
+- `Enter`: Submit the form
+- `Tab`: Navigate form fields
+- `Space`: Open/close color picker
 
 ---
 

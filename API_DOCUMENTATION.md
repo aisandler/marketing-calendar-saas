@@ -12,6 +12,7 @@ This document provides comprehensive documentation for the API endpoints used in
 - [History API](#history-api)
 - [Error Handling](#error-handling)
 - [TypeScript Interfaces](#typescript-interfaces)
+- [Brand Management API](#brand-management-api)
 
 ## Authentication API
 
@@ -700,6 +701,180 @@ interface History {
   user?: User;
 }
 ```
+
+## Brand Management API
+
+### Get All Brands
+
+```http
+GET /rest/v1/brands
+```
+
+Returns a list of all brands.
+
+**Response**
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "name": "string",
+      "code": "string",
+      "color": "string",
+      "created_at": "timestamp",
+      "updated_at": "timestamp"
+    }
+  ]
+}
+```
+
+### Create Brand
+
+```http
+POST /rest/v1/brands
+```
+
+Creates a new brand.
+
+**Request Body**
+```json
+{
+  "name": "string",
+  "code": "string",
+  "color": "string"
+}
+```
+
+**Response**
+```json
+{
+  "id": "uuid",
+  "name": "string",
+  "code": "string",
+  "color": "string",
+  "created_at": "timestamp",
+  "updated_at": "timestamp"
+}
+```
+
+### Update Brand
+
+```http
+PATCH /rest/v1/brands?id=eq.{brandId}
+```
+
+Updates an existing brand.
+
+**Request Body**
+```json
+{
+  "name": "string",
+  "code": "string",
+  "color": "string"
+}
+```
+
+**Response**
+```json
+{
+  "id": "uuid",
+  "name": "string",
+  "code": "string",
+  "color": "string",
+  "created_at": "timestamp",
+  "updated_at": "timestamp"
+}
+```
+
+### Delete Brand
+
+```http
+DELETE /rest/v1/brands?id=eq.{brandId}
+```
+
+Deletes a brand.
+
+**Response**
+```json
+{
+  "status": 204
+}
+```
+
+### Validate Brand Code
+
+```http
+GET /rest/v1/brands?code=eq.{code}
+```
+
+Checks if a brand code is available.
+
+**Response**
+```json
+{
+  "data": [] // Empty array means code is available
+}
+```
+
+### Error Responses
+
+All endpoints may return the following errors:
+
+```json
+{
+  "code": "23505",
+  "message": "duplicate key value violates unique constraint \"unique_brand_code\""
+}
+```
+
+```json
+{
+  "code": "42501",
+  "message": "insufficient_privilege"
+}
+```
+
+### Row Level Security (RLS) Policies
+
+The brands table has the following RLS policies:
+
+```sql
+-- Allow read access to all authenticated users
+CREATE POLICY "Allow read access to all authenticated users"
+ON brands FOR SELECT
+TO authenticated
+USING (true);
+
+-- Allow create access to users with admin role
+CREATE POLICY "Allow create access to admins"
+ON brands FOR INSERT
+TO authenticated
+WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- Allow update access to users with admin role
+CREATE POLICY "Allow update access to admins"
+ON brands FOR UPDATE
+TO authenticated
+USING (auth.jwt() ->> 'role' = 'admin')
+WITH CHECK (auth.jwt() ->> 'role' = 'admin');
+
+-- Allow delete access to users with admin role
+CREATE POLICY "Allow delete access to admins"
+ON brands FOR DELETE
+TO authenticated
+USING (auth.jwt() ->> 'role' = 'admin');
+```
+
+### Rate Limiting
+
+- All brand endpoints are rate-limited to 100 requests per minute per user
+- The validate brand code endpoint is rate-limited to 30 requests per minute per user
+
+### Caching
+
+- Brand list responses are cached for 5 minutes
+- Individual brand responses are cached for 1 minute
+- Validation responses are not cached
 
 ---
 
