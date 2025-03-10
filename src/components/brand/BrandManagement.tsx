@@ -1,20 +1,24 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { Brand, CreateBrandInput, UpdateBrandInput } from '../../types/brand';
+import { Brand, CreateBrandInput } from '../../types/brand';
 import { useBrand } from '../../contexts/BrandContext';
+import { useToast } from '../../contexts/ToastContext';
 import { BrandList } from './BrandList';
 import { BrandForm } from './BrandForm';
 
 export function BrandManagement() {
   const { createBrand, updateBrand } = useBrand();
+  const { showToast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState<Brand | undefined>();
 
   const handleCreate = async (data: CreateBrandInput) => {
     try {
       await createBrand(data);
+      showToast('success', 'Brand created', 'Brand has been created successfully');
       setIsFormOpen(false);
     } catch (error) {
+      showToast('error', 'Failed to create brand', error instanceof Error ? error.message : 'An unexpected error occurred');
       console.error('Failed to create brand:', error);
     }
   };
@@ -27,8 +31,10 @@ export function BrandManagement() {
         id: editingBrand.id,
         ...data,
       });
+      showToast('success', 'Brand updated', 'Brand has been updated successfully');
       setEditingBrand(undefined);
     } catch (error) {
+      showToast('error', 'Failed to update brand', error instanceof Error ? error.message : 'An unexpected error occurred');
       console.error('Failed to update brand:', error);
     }
   };
