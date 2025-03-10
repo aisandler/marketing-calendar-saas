@@ -1,79 +1,58 @@
-import { useState } from 'react';
-import { Popover } from '@headlessui/react';
-import { Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { HexColorPicker } from 'react-colorful';
+import { cn } from '../../lib/utils';
 
-interface ColorPickerProps {
-  value: string;
+export interface ColorPickerProps {
+  color: string;
   onChange: (color: string) => void;
+  disabled?: boolean;
 }
 
-const predefinedColors = [
-  '#EF4444', // Red
-  '#F97316', // Orange
-  '#F59E0B', // Amber
-  '#84CC16', // Lime
-  '#10B981', // Emerald
-  '#06B6D4', // Cyan
-  '#3B82F6', // Blue
-  '#6366F1', // Indigo
-  '#8B5CF6', // Violet
-  '#EC4899', // Pink
-];
+export function ColorPicker({ color, onChange, disabled }: ColorPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const popover = useRef<HTMLDivElement>(null);
 
-export function ColorPicker({ value, onChange }: ColorPickerProps) {
-  const [customColor, setCustomColor] = useState(value);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popover.current && !popover.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
 
-  const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newColor = e.target.value;
-    setCustomColor(newColor);
-    onChange(newColor);
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   return (
-    <Popover className="relative">
-      <Popover.Button
-        className="h-10 w-10 rounded-lg border border-gray-300 shadow-sm"
-        style={{ backgroundColor: value }}
-      >
-        <span className="sr-only">Choose color</span>
-      </Popover.Button>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={cn(
+          'h-10 w-10 rounded-md border shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2',
+          disabled && 'cursor-not-allowed opacity-50'
+        )}
+        style={{ backgroundColor: color }}
+        disabled={disabled}
+        aria-label="Choose color"
+      />
 
-      <Popover.Panel className="absolute z-10 mt-2 w-72 rounded-lg bg-white p-3 shadow-lg ring-1 ring-black ring-opacity-5">
-        <div className="grid grid-cols-5 gap-2">
-          {predefinedColors.map((color) => (
-            <button
-              key={color}
-              className="relative h-8 w-8 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2"
-              style={{ backgroundColor: color }}
-              onClick={() => onChange(color)}
-            >
-              {color === value && (
-                <Check
-                  className="absolute left-1/2 top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 text-white"
-                  aria-hidden="true"
-                />
-              )}
-              <span className="sr-only">Choose {color}</span>
-            </button>
-          ))}
+      {isOpen && (
+        <div
+          ref={popover}
+          className="absolute left-0 top-12 z-10 rounded-md border border-gray-200 bg-white p-3 shadow-lg"
+        >
+          <HexColorPicker color={color} onChange={onChange} />
+          <input
+            type="text"
+            value={color}
+            onChange={(e) => onChange(e.target.value)}
+            className="mt-3 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            pattern="^#[0-9A-Fa-f]{6}$"
+            title="Please enter a valid hex color code (e.g., #FF0000)"
+          />
         </div>
-
-        <div className="mt-4">
-          <label htmlFor="custom-color" className="block text-sm font-medium text-gray-700">
-            Custom color
-          </label>
-          <div className="mt-1">
-            <input
-              type="color"
-              id="custom-color"
-              name="custom-color"
-              value={customColor}
-              onChange={handleCustomColorChange}
-              className="h-8 w-full rounded-lg"
-            />
-          </div>
-        </div>
-      </Popover.Panel>
-    </Popover>
+      )}
+    </div>
   );
 } 

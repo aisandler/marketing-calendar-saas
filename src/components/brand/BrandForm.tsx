@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Brand, CreateBrandInput } from '../../types/brand';
+import { Button } from '../ui/Button';
+import { Input } from '../ui/Input';
 import { ColorPicker } from './ColorPicker';
 import { BrandCodeValidator } from './BrandCodeValidator';
+import { Loader2 } from 'lucide-react';
 
 const brandSchema = z.object({
   name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
@@ -23,66 +26,62 @@ interface BrandFormProps {
 }
 
 export function BrandForm({ brand, onSubmit, onCancel }: BrandFormProps) {
-  const [isCodeValid, setIsCodeValid] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
-    setValue,
+    formState: { errors },
     watch,
+    setValue,
   } = useForm<CreateBrandInput>({
     resolver: zodResolver(brandSchema),
     defaultValues: {
       name: brand?.name || '',
       code: brand?.code || '',
-      color: brand?.color || '#3B82F6',
+      color: brand?.color || '#FF0000',
     },
   });
 
-  const currentColor = watch('color');
-
-  useEffect(() => {
-    register('color');
-  }, [register]);
-
-  const onFormSubmit = handleSubmit(async (data) => {
-    if (!isCodeValid) return;
-    await onSubmit(data);
-  });
+  const handleFormSubmit = async (data: CreateBrandInput) => {
+    try {
+      setIsSubmitting(true);
+      await onSubmit(data);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
-    <form onSubmit={onFormSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-4">
       <div>
         <label htmlFor="name" className="block text-sm font-medium text-gray-700">
           Brand Name
         </label>
-        <input
-          type="text"
+        <Input
           id="name"
-          {...register('name')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          type="text"
+          {...register('name', { required: 'Brand name is required' })}
+          error={errors.name?.message}
+          disabled={isSubmitting}
         />
-        {errors.name && (
-          <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-        )}
       </div>
 
       <div>
         <label htmlFor="code" className="block text-sm font-medium text-gray-700">
           Brand Code
         </label>
-        <input
-          type="text"
-          id="code"
-          {...register('code')}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-        />
-        {errors.code && (
-          <p className="mt-1 text-sm text-red-600">{errors.code.message}</p>
-        )}
         <BrandCodeValidator
-          code={watch('code')}
-          onValidation={setIsCodeValid}
+          id="code"
+          {...register('code', {
+            required: 'Brand code is required',
+            pattern: {
+              value: /^[A-Z0-9_]+$/,
+              message: 'Brand code must be uppercase letters, numbers, and underscores only',
+            },
+          })}
+          currentBrandId={brand?.id}
+          error={errors.code?.message}
+          disabled={isSubmitting}
         />
       </div>
 
@@ -90,32 +89,35 @@ export function BrandForm({ brand, onSubmit, onCancel }: BrandFormProps) {
         <label className="block text-sm font-medium text-gray-700">
           Brand Color
         </label>
-        <div className="mt-1">
-          <ColorPicker
-            value={currentColor}
-            onChange={(color) => setValue('color', color)}
-          />
-        </div>
-        {errors.color && (
-          <p className="mt-1 text-sm text-red-600">{errors.color.message}</p>
-        )}
+        <ColorPicker
+          color={watch('color')}
+          onChange={(color) => setValue('color', color)}
+          disabled={isSubmitting}
+        />
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
-        <button
+      <div className="flex justify-end space-x-3">
+        <Button
           type="button"
+          variant="outline"
           onClick={onCancel}
-          className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          disabled={isSubmitting}
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
-          disabled={isSubmitting || !isCodeValid}
-          className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isSubmitting}
         >
-          {isSubmitting ? 'Saving...' : brand ? 'Update Brand' : 'Create Brand'}
-        </button>
+          {isSubmitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {brand ? 'Updating...' : 'Creating...'}
+            </>
+          ) : (
+            brand ? 'Update Brand' : 'Create Brand'
+          )}
+        </Button>
       </div>
     </form>
   );

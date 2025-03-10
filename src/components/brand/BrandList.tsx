@@ -3,13 +3,14 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Brand } from '../../types/brand';
 import { useBrand } from '../../contexts/BrandContext';
 import { useToast } from '../../contexts/ToastContext';
+import { BrandListSkeleton } from './BrandListSkeleton';
 
 interface BrandListProps {
   onEdit: (brand: Brand) => void;
 }
 
 export function BrandList({ onEdit }: BrandListProps) {
-  const { brands, deleteBrand } = useBrand();
+  const { brands, deleteBrand, loading } = useBrand();
   const { showToast } = useToast();
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -25,6 +26,10 @@ export function BrandList({ onEdit }: BrandListProps) {
       setDeletingId(null);
     }
   };
+
+  if (loading) {
+    return <BrandListSkeleton />;
+  }
 
   if (brands.length === 0) {
     return (
