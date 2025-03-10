@@ -611,191 +611,170 @@ When setting up the application for the first time, RLS policies can prevent the
 
 ## Brand Management System
 
-The brand management system allows users to create, update, delete, and manage brands within the application. It's implemented using React components with TypeScript and follows a context-based state management pattern.
+The brand management system provides functionality for creating, editing, and managing brands within the marketing calendar. It includes several key components and features:
 
-### Brand Components
+### Components
 
-Located in `src/components/brand/`, the brand management system consists of the following components:
+1. **BrandManagement (`src/components/brand/BrandManagement.tsx`)**
+   - Main container component for brand management
+   - Handles brand creation and updates
+   - Integrates with toast notifications for user feedback
+   - Manages loading states and error handling
 
-1. **BrandManagement**: Main component that orchestrates brand management
-   ```typescript
-   // Usage
-   <BrandManagement />
-   ```
-   - Manages form visibility and editing state
-   - Handles create/update operations
-   - Provides the main UI container
+2. **BrandForm (`src/components/brand/BrandForm.tsx`)**
+   - Form component for brand creation and editing
+   - Implements comprehensive validation rules using Zod
+   - Features real-time validation
+   - Includes cross-field validation
+   - Provides accessibility features
 
-2. **BrandForm**: Form component for creating/editing brands
-   ```typescript
-   interface BrandFormProps {
-     brand?: Brand;
-     onSubmit: (data: CreateBrandInput) => Promise<void>;
-     onCancel: () => void;
-   }
-   ```
-   - Uses React Hook Form with Zod validation
-   - Handles brand code validation
-   - Provides color selection interface
+3. **BrandList (`src/components/brand/BrandList.tsx`)**
+   - Displays list of existing brands
+   - Handles brand deletion
+   - Shows color swatches
+   - Includes loading states and error handling
 
-3. **ColorPicker**: Reusable color selection component
-   ```typescript
-   interface ColorPickerProps {
-     value: string;
-     onChange: (color: string) => void;
-   }
-   ```
-   - Offers predefined color palette
-   - Supports custom color input
-   - Uses HeadlessUI's Popover for the dropdown
+4. **ColorPicker (`src/components/brand/ColorPicker.tsx`)**
+   - Custom color picker component
+   - Supports hex color input
+   - Validates color contrast
+   - Includes accessibility features
+   - Handles keyboard navigation
 
-4. **BrandCodeValidator**: Real-time brand code validation
-   ```typescript
-   interface BrandCodeValidatorProps {
-     code: string;
-     onValidation: (isValid: boolean) => void;
-   }
-   ```
+5. **BrandCodeValidator (`src/components/brand/BrandCodeValidator.tsx`)**
+   - Validates brand code uniqueness
+   - Implements code format rules
    - Provides real-time validation feedback
-   - Debounces validation requests
-   - Shows loading and validation states
 
-5. **BrandList**: Displays and manages existing brands
-   ```typescript
-   interface BrandListProps {
-     onEdit: (brand: Brand) => void;
-   }
-   ```
-   - Lists all brands with their details
-   - Handles delete operations
-   - Provides edit functionality
+### Validation Rules
 
-### Brand Context
+#### Brand Name
+- Length: 2-50 characters
+- Allowed characters: letters, numbers, spaces, hyphens, and ampersands
+- Cannot be only whitespace
+- Must be unique within the organization
 
-The `BrandContext` (`src/contexts/BrandContext.tsx`) manages the global state and operations for brands:
+#### Brand Code
+- Length: 2-10 characters
+- Uppercase letters, numbers, and underscores only
+- Cannot start or end with underscore
+- No consecutive underscores
+- Must be unique
+- Cannot match the brand name (after normalization)
 
-```typescript
-interface BrandContextType {
-  brands: Brand[];
-  loading: boolean;
-  error: string | null;
-  createBrand: (brand: CreateBrandInput) => Promise<void>;
-  updateBrand: (brand: UpdateBrandInput) => Promise<void>;
-  deleteBrand: (id: string) => Promise<void>;
-  validateBrandCode: (code: string) => Promise<boolean>;
-}
-```
+#### Brand Color
+- Valid hex color format (#RRGGBB)
+- Must have sufficient contrast (luminance between 0.2 and 0.8)
+- Cannot be too light or too dark
 
-Usage:
-```typescript
-// Wrap your app with BrandProvider
-<BrandProvider>
-  <App />
-</BrandProvider>
+### State Management
 
-// Use brand context in components
-const { brands, createBrand, updateBrand, deleteBrand } = useBrand();
-```
-
-### Brand Types
-
-Located in `src/types/brand.ts`:
+The brand management system uses a combination of local state and context:
 
 ```typescript
-interface Brand {
-  id: string;
-  name: string;
-  code: string;
-  color: string;
-  created_at: string;
-  updated_at: string;
-}
+// Local state for form handling
+const [isSubmitting, setIsSubmitting] = useState(false);
+const {
+  register,
+  handleSubmit,
+  formState: { errors },
+  watch,
+  setValue,
+  trigger,
+} = useForm<CreateBrandInput>({
+  resolver: zodResolver(brandSchema),
+  mode: 'onChange',
+});
 
-interface CreateBrandInput {
-  name: string;
-  code: string;
-  color: string;
-}
-
-interface UpdateBrandInput extends Partial<CreateBrandInput> {
-  id: string;
-}
+// Toast notifications for user feedback
+const { showToast } = useToast();
 ```
 
-### Database Schema Updates
+### Database Integration
 
-The brands table in PostgreSQL:
+Brands are stored in the `brands` table with the following schema:
 
 ```sql
-CREATE TABLE brands (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name TEXT NOT NULL,
-    code TEXT NOT NULL,
-    color TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT unique_brand_code UNIQUE(code)
+create table brands (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null,
+  code text not null,
+  color text not null,
+  created_at timestamp with time zone default timezone('utc'::text, now()),
+  updated_at timestamp with time zone default timezone('utc'::text, now()),
+  organization_id uuid references organizations(id) on delete cascade,
+  unique(code, organization_id)
 );
 ```
 
-### Form Validation Rules
+### Accessibility Features
 
-Brand form validation using Zod:
+The brand management system implements several accessibility features:
 
-```typescript
-const brandSchema = z.object({
-  name: z.string().min(1, 'Name is required').max(100, 'Name is too long'),
-  code: z
-    .string()
-    .min(2, 'Code must be at least 2 characters')
-    .max(10, 'Code must be at most 10 characters')
-    .regex(/^[A-Z0-9]+$/, 'Code must contain only uppercase letters and numbers'),
-  color: z.string().regex(/^#[0-9A-F]{6}$/i, 'Invalid color format'),
-});
-```
+1. **ARIA Attributes**
+   - Labels and descriptions for form controls
+   - Error message associations
+   - Role definitions
+   - State indicators (invalid, disabled)
 
-### Testing
+2. **Keyboard Navigation**
+   - Tab order management
+   - Color picker keyboard controls
+   - Focus management
+   - Modal dialog handling
 
-Brand management components should be tested for:
-
-1. Form validation
-2. Brand code uniqueness validation
-3. Color picker functionality
-4. CRUD operations
-5. Error handling
-6. Loading states
-
-Example test structure:
-```typescript
-describe('BrandManagement', () => {
-  it('should create a new brand successfully');
-  it('should validate brand code uniqueness');
-  it('should handle brand updates');
-  it('should handle brand deletion');
-  it('should display error messages');
-});
-```
+3. **Screen Reader Support**
+   - Descriptive labels
+   - Error announcements
+   - Status updates
+   - Loading state indicators
 
 ### Error Handling
 
-The brand management system handles errors at multiple levels:
+The system implements comprehensive error handling:
 
-1. Form-level validation errors
-2. API-level errors (create, update, delete operations)
-3. Brand code validation errors
-4. Network errors
+1. **Validation Errors**
+   - Real-time feedback
+   - Field-specific error messages
+   - Cross-field validation errors
+   - Unique constraint violations
 
-Errors are displayed to users through:
-- Form validation messages
-- Toast notifications (for API errors)
-- Inline validation feedback
+2. **API Errors**
+   - Network error handling
+   - Server error handling
+   - Conflict resolution
+   - Timeout handling
 
-### Performance Considerations
+3. **User Feedback**
+   - Toast notifications
+   - Loading indicators
+   - Success confirmations
+   - Error recovery options
 
-1. Brand code validation is debounced (500ms)
-2. Color picker uses a Popover for better performance
-3. Brand list uses optimistic updates
-4. Context provides caching of brand data
+### Testing
+
+The brand management system includes comprehensive tests:
+
+1. **Unit Tests**
+   - Component rendering
+   - Validation rules
+   - User interactions
+   - Error handling
+   - Loading states
+
+2. **Integration Tests**
+   - Form submission
+   - API integration
+   - State management
+   - Cross-component interaction
+
+3. **Accessibility Tests**
+   - ARIA compliance
+   - Keyboard navigation
+   - Screen reader compatibility
+   - Color contrast
+
+For detailed test examples, see the test files in `src/tests/brand/`.
 
 ---
 

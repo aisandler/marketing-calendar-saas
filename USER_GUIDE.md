@@ -52,6 +52,13 @@ Welcome to the Marketing Calendar SaaS application! This guide will help you nav
   - [Troubleshooting](#brand-management-troubleshooting)
   - [Best Practices](#best-practices)
   - [Keyboard Shortcuts](#keyboard-shortcuts)
+- [Managing Brands](#managing-brands)
+  - [Creating a New Brand](#creating-a-new-brand)
+  - [Editing a Brand](#editing-a-brand)
+  - [Deleting a Brand](#deleting-a-brand)
+  - [Brand Validation Rules](#brand-validation-rules)
+  - [Tips for Brand Management](#tips-for-brand-management)
+  - [Troubleshooting](#brand-management-troubleshooting)
 
 ## Getting Started
 
@@ -502,6 +509,108 @@ When managing brands:
 - `Enter`: Submit the form
 - `Tab`: Navigate form fields
 - `Space`: Open/close color picker
+
+## Managing Brands
+
+The brand management system allows you to create, edit, and organize brands for your marketing calendar. Each brand has a unique identifier (code), name, and associated color for easy visual identification in the calendar.
+
+### Creating a New Brand
+
+1. Navigate to the Brand Management section
+2. Click the "Create Brand" button
+3. Fill in the brand details:
+   - **Brand Name**: Enter a descriptive name (2-50 characters)
+     - Can include letters, numbers, spaces, hyphens, and ampersands
+     - Example: "Summer Collection 2024"
+   - **Brand Code**: Create a unique identifier (2-10 characters)
+     - Must use uppercase letters, numbers, and underscores
+     - Cannot start or end with underscore
+     - Example: "SUMMER24"
+   - **Brand Color**: Choose a color for calendar display
+     - Click the color swatch to open the color picker
+     - Use the color palette or enter a hex code
+     - Color must have good contrast for visibility
+4. Click "Create" to save the brand
+
+### Editing a Brand
+
+1. Find the brand in the brand list
+2. Click the "Edit" button (pencil icon)
+3. Modify the brand details as needed
+4. Click "Update" to save changes
+
+### Deleting a Brand
+
+1. Locate the brand in the brand list
+2. Click the "Delete" button (trash icon)
+3. Confirm the deletion in the popup dialog
+
+### Brand Validation Rules
+
+To ensure consistency and usability, brands must follow these rules:
+
+1. **Brand Name**
+   - Must be 2-50 characters long
+   - Can contain letters, numbers, spaces, hyphens, and ampersands
+   - Cannot be only whitespace
+   - Must be unique in your organization
+
+2. **Brand Code**
+   - Must be 2-10 characters long
+   - Can only contain uppercase letters, numbers, and underscores
+   - Cannot start or end with an underscore
+   - Cannot contain consecutive underscores
+   - Must be unique in your organization
+   - Cannot match the brand name (after removing special characters)
+
+3. **Brand Color**
+   - Must be a valid hex color code (e.g., #FF0000)
+   - Must have sufficient contrast for visibility
+   - Cannot be too light or too dark
+
+### Tips for Brand Management
+
+1. **Naming Conventions**
+   - Use descriptive, easily recognizable names
+   - Consider including the year or season if relevant
+   - Keep names concise but meaningful
+
+2. **Brand Codes**
+   - Create a consistent system for codes
+   - Consider using prefixes for different brand types
+   - Make codes easy to remember and type
+
+3. **Color Selection**
+   - Choose colors that match your brand identity
+   - Ensure colors are distinct enough to differentiate in the calendar
+   - Test colors in both light and dark modes
+
+4. **Organization**
+   - Regularly review and update brand information
+   - Archive or delete unused brands
+   - Document your brand naming and coding conventions
+
+### Troubleshooting
+
+1. **Brand Creation Issues**
+   - Ensure all required fields are filled
+   - Check that the brand code is unique
+   - Verify the color contrast meets requirements
+
+2. **Validation Errors**
+   - Read the error messages carefully
+   - Check the validation rules above
+   - Make sure there are no leading/trailing spaces
+
+3. **Color Picker Issues**
+   - Use the hex code input for precise colors
+   - Check that the color provides enough contrast
+   - Try refreshing the page if the picker doesn't respond
+
+4. **General Problems**
+   - Check your internet connection
+   - Try logging out and back in
+   - Contact support if issues persist
 
 ---
 

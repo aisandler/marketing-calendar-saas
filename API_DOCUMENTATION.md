@@ -704,31 +704,57 @@ interface History {
 
 ## Brand Management API
 
-### Get All Brands
+### Brand Endpoints
+
+#### List Brands
 
 ```http
 GET /rest/v1/brands
 ```
 
-Returns a list of all brands.
+Lists all brands for the authenticated user's organization.
 
-**Response**
+**Query Parameters:**
+- `select`: Fields to return (default: all)
+- `order`: Sort order (e.g., `name.asc`, `created_at.desc`)
+
+**Response:**
+```json
+[
+  {
+    "id": "uuid",
+    "name": "string",
+    "code": "string",
+    "color": "string",
+    "created_at": "timestamp",
+    "updated_at": "timestamp",
+    "organization_id": "uuid"
+  }
+]
+```
+
+#### Get Brand
+
+```http
+GET /rest/v1/brands?id=eq.{brand_id}
+```
+
+Retrieves a specific brand by ID.
+
+**Response:**
 ```json
 {
-  "data": [
-    {
-      "id": "uuid",
-      "name": "string",
-      "code": "string",
-      "color": "string",
-      "created_at": "timestamp",
-      "updated_at": "timestamp"
-    }
-  ]
+  "id": "uuid",
+  "name": "string",
+  "code": "string",
+  "color": "string",
+  "created_at": "timestamp",
+  "updated_at": "timestamp",
+  "organization_id": "uuid"
 }
 ```
 
-### Create Brand
+#### Create Brand
 
 ```http
 POST /rest/v1/brands
@@ -736,7 +762,7 @@ POST /rest/v1/brands
 
 Creates a new brand.
 
-**Request Body**
+**Request Body:**
 ```json
 {
   "name": "string",
@@ -745,7 +771,12 @@ Creates a new brand.
 }
 ```
 
-**Response**
+**Validation Rules:**
+- `name`: 2-50 characters, letters/numbers/spaces/hyphens/ampersands
+- `code`: 2-10 characters, uppercase letters/numbers/underscores
+- `color`: Valid hex color code (#RRGGBB)
+
+**Response:**
 ```json
 {
   "id": "uuid",
@@ -753,19 +784,20 @@ Creates a new brand.
   "code": "string",
   "color": "string",
   "created_at": "timestamp",
-  "updated_at": "timestamp"
+  "updated_at": "timestamp",
+  "organization_id": "uuid"
 }
 ```
 
-### Update Brand
+#### Update Brand
 
 ```http
-PATCH /rest/v1/brands?id=eq.{brandId}
+PATCH /rest/v1/brands?id=eq.{brand_id}
 ```
 
 Updates an existing brand.
 
-**Request Body**
+**Request Body:**
 ```json
 {
   "name": "string",
@@ -774,7 +806,7 @@ Updates an existing brand.
 }
 ```
 
-**Response**
+**Response:**
 ```json
 {
   "id": "uuid",
@@ -782,37 +814,38 @@ Updates an existing brand.
   "code": "string",
   "color": "string",
   "created_at": "timestamp",
-  "updated_at": "timestamp"
+  "updated_at": "timestamp",
+  "organization_id": "uuid"
 }
 ```
 
-### Delete Brand
+#### Delete Brand
 
 ```http
-DELETE /rest/v1/brands?id=eq.{brandId}
+DELETE /rest/v1/brands?id=eq.{brand_id}
 ```
 
 Deletes a brand.
 
-**Response**
-```json
-{
-  "status": 204
-}
-```
+**Response:** HTTP 204 No Content
 
-### Validate Brand Code
+#### Validate Brand Code
 
 ```http
-GET /rest/v1/brands?code=eq.{code}
+GET /rest/v1/rpc/validate_brand_code
 ```
 
 Checks if a brand code is available.
 
-**Response**
+**Query Parameters:**
+- `code`: The brand code to validate
+- `current_brand_id`: Optional ID of brand being edited
+
+**Response:**
 ```json
 {
-  "data": [] // Empty array means code is available
+  "is_valid": boolean,
+  "message": "string"
 }
 ```
 
@@ -820,61 +853,95 @@ Checks if a brand code is available.
 
 All endpoints may return the following errors:
 
+#### 400 Bad Request
 ```json
 {
-  "code": "23505",
-  "message": "duplicate key value violates unique constraint \"unique_brand_code\""
+  "code": "VALIDATION_ERROR",
+  "message": "string",
+  "details": {
+    "field": "error message"
+  }
 }
 ```
 
+#### 401 Unauthorized
 ```json
 {
-  "code": "42501",
-  "message": "insufficient_privilege"
+  "code": "UNAUTHORIZED",
+  "message": "Invalid credentials"
 }
 ```
 
-### Row Level Security (RLS) Policies
+#### 403 Forbidden
+```json
+{
+  "code": "FORBIDDEN",
+  "message": "Insufficient permissions"
+}
+```
 
-The brands table has the following RLS policies:
+#### 404 Not Found
+```json
+{
+  "code": "NOT_FOUND",
+  "message": "Brand not found"
+}
+```
 
-```sql
--- Allow read access to all authenticated users
-CREATE POLICY "Allow read access to all authenticated users"
-ON brands FOR SELECT
-TO authenticated
-USING (true);
-
--- Allow create access to users with admin role
-CREATE POLICY "Allow create access to admins"
-ON brands FOR INSERT
-TO authenticated
-WITH CHECK (auth.jwt() ->> 'role' = 'admin');
-
--- Allow update access to users with admin role
-CREATE POLICY "Allow update access to admins"
-ON brands FOR UPDATE
-TO authenticated
-USING (auth.jwt() ->> 'role' = 'admin')
-WITH CHECK (auth.jwt() ->> 'role' = 'admin');
-
--- Allow delete access to users with admin role
-CREATE POLICY "Allow delete access to admins"
-ON brands FOR DELETE
-TO authenticated
-USING (auth.jwt() ->> 'role' = 'admin');
+#### 409 Conflict
+```json
+{
+  "code": "CONFLICT",
+  "message": "Brand code already exists"
+}
 ```
 
 ### Rate Limiting
 
-- All brand endpoints are rate-limited to 100 requests per minute per user
-- The validate brand code endpoint is rate-limited to 30 requests per minute per user
+- 100 requests per minute per user
+- 429 Too Many Requests response when exceeded
 
-### Caching
+### Example Usage
 
-- Brand list responses are cached for 5 minutes
-- Individual brand responses are cached for 1 minute
-- Validation responses are not cached
+```typescript
+// List brands
+const { data: brands, error } = await supabase
+  .from('brands')
+  .select('*')
+  .order('name');
+
+// Create brand
+const { data: newBrand, error } = await supabase
+  .from('brands')
+  .insert({
+    name: 'Summer Collection',
+    code: 'SUMMER24',
+    color: '#FF5733'
+  })
+  .single();
+
+// Update brand
+const { data: updatedBrand, error } = await supabase
+  .from('brands')
+  .update({
+    name: 'Summer Collection 2024'
+  })
+  .eq('id', brandId)
+  .single();
+
+// Delete brand
+const { error } = await supabase
+  .from('brands')
+  .delete()
+  .eq('id', brandId);
+
+// Validate brand code
+const { data: validation, error } = await supabase
+  .rpc('validate_brand_code', {
+    code: 'SUMMER24',
+    current_brand_id: null
+  });
+```
 
 ---
 

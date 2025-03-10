@@ -54,6 +54,10 @@ npm run test:coverage
 - `CreateBrief.test.tsx`: Tests the brief creation and editing functionality
 - `CalendarView.test.tsx`: Tests the calendar view component
 - `api.test.ts`: Tests the API functions
+- `BrandForm.test.tsx`: Tests brand creation and editing with comprehensive validation rules
+- `BrandManagement.test.tsx`: Tests the brand management interface
+- `ColorPicker.test.tsx`: Tests the color picker component with accessibility features
+- `BrandCodeValidator.test.tsx`: Tests brand code validation and uniqueness checks
 
 ## Running End-to-End Tests
 
@@ -138,4 +142,39 @@ The coverage report will be generated in the `coverage` directory.
 2. **Use descriptive test names**: Test names should clearly describe what is being tested
 3. **Avoid testing implementation details**: Test the behavior, not the implementation
 4. **Keep tests independent**: Tests should not depend on the state from other tests
-5. **Mock external dependencies**: Use mocks for external services like Supabase 
+5. **Mock external dependencies**: Use mocks for external services like Supabase
+6. **Test validation comprehensively**: Cover all validation rules and edge cases
+7. **Test accessibility features**: Ensure ARIA attributes and keyboard navigation work
+8. **Test loading and error states**: Verify proper handling of async operations
+9. **Use realistic user interactions**: Prefer `userEvent` over `fireEvent` for more realistic testing
+10. **Test cross-field validations**: Verify interactions between related form fields
+
+### Validation Testing Guidelines
+
+When testing form validation, ensure coverage of:
+
+1. **Input Validation**
+   - Length constraints (min/max)
+   - Character set restrictions
+   - Format requirements
+   - Whitespace handling
+   - Cross-field validation rules
+
+2. **Real-time Validation**
+   - Immediate feedback on input
+   - Validation on blur events
+   - Cross-field validation triggers
+
+3. **Accessibility Testing**
+   - Error message associations with inputs
+   - ARIA attributes and roles
+   - Keyboard navigation
+   - Screen reader compatibility
+
+4. **State Management**
+   - Loading states
+   - Error states
+   - Success states
+   - Form submission handling
+
+Example of a comprehensive validation test suite can be found in `src/tests/brand/BrandForm.test.tsx`. 
