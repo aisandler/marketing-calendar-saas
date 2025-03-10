@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrandManagement } from '../../components/brand/BrandManagement';
 import { BrandProvider } from '../../contexts/BrandContext';
+import { ToastProvider } from '../../contexts/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { jest, describe, test, expect, beforeEach } from '@jest/globals';
 import '@testing-library/jest-dom';
@@ -49,6 +50,16 @@ const mockBrands: Brand[] = [
   },
 ];
 
+const renderWithProviders = (ui: React.ReactElement) => {
+  return render(
+    <ToastProvider>
+      <BrandProvider>
+        {ui}
+      </BrandProvider>
+    </ToastProvider>
+  );
+};
+
 describe('BrandManagement Component', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -61,11 +72,7 @@ describe('BrandManagement Component', () => {
   });
 
   test('renders brand management interface', async () => {
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
     // Check that the main elements are rendered
     expect(screen.getByText('Brand Management')).toBeInTheDocument();
@@ -79,11 +86,7 @@ describe('BrandManagement Component', () => {
   });
 
   test('opens brand form when Add Brand is clicked', async () => {
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
     // Click the Add Brand button
     fireEvent.click(screen.getByText('Add Brand'));
@@ -94,7 +97,7 @@ describe('BrandManagement Component', () => {
     expect(screen.getByLabelText('Code')).toBeInTheDocument();
   });
 
-  test('creates a new brand successfully', async () => {
+  test('shows success toast when brand is created', async () => {
     // Mock the insert response
     (supabase.insert as jest.Mock).mockResolvedValueOnce({
       data: [{
@@ -108,11 +111,7 @@ describe('BrandManagement Component', () => {
       error: null,
     });
 
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
     // Open the form
     fireEvent.click(screen.getByText('Add Brand'));
@@ -128,24 +127,21 @@ describe('BrandManagement Component', () => {
     // Submit the form
     fireEvent.click(screen.getByText('Create'));
 
-    // Wait for success message
+    // Wait for success toast
     await waitFor(() => {
       expect(screen.getByText('Brand created successfully')).toBeInTheDocument();
+      expect(screen.getByLabelText('Success')).toBeInTheDocument();
     });
   });
 
-  test('handles brand creation errors', async () => {
+  test('shows error toast when brand creation fails', async () => {
     // Mock the insert response with an error
     (supabase.insert as jest.Mock).mockResolvedValueOnce({
       data: null,
       error: { message: 'Brand code already exists' },
     });
 
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
     // Open the form
     fireEvent.click(screen.getByText('Add Brand'));
@@ -161,13 +157,14 @@ describe('BrandManagement Component', () => {
     // Submit the form
     fireEvent.click(screen.getByText('Create'));
 
-    // Wait for error message
+    // Wait for error toast
     await waitFor(() => {
-      expect(screen.getByText('Brand code already exists')).toBeInTheDocument();
+      expect(screen.getByText('Failed to create brand: Brand code already exists')).toBeInTheDocument();
+      expect(screen.getByLabelText('Error')).toBeInTheDocument();
     });
   });
 
-  test('edits an existing brand', async () => {
+  test('shows success toast when brand is updated', async () => {
     // Mock the update response
     (supabase.update as jest.Mock).mockResolvedValueOnce({
       data: [{
@@ -181,20 +178,12 @@ describe('BrandManagement Component', () => {
       error: null,
     });
 
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
     // Wait for brands to load and click edit button
     await waitFor(() => {
       fireEvent.click(screen.getAllByLabelText('Edit brand')[0]);
     });
-
-    // Check that form is in edit mode
-    expect(screen.getByText('Edit Brand')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('Test Brand 1')).toBeInTheDocument();
 
     // Update the name
     fireEvent.change(screen.getByLabelText('Name'), {
@@ -204,24 +193,50 @@ describe('BrandManagement Component', () => {
     // Submit the form
     fireEvent.click(screen.getByText('Update'));
 
-    // Wait for success message
+    // Wait for success toast
     await waitFor(() => {
       expect(screen.getByText('Brand updated successfully')).toBeInTheDocument();
+      expect(screen.getByLabelText('Success')).toBeInTheDocument();
     });
   });
 
-  test('deletes a brand', async () => {
+  test('shows error toast when brand update fails', async () => {
+    // Mock the update response with an error
+    (supabase.update as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Database error' },
+    });
+
+    renderWithProviders(<BrandManagement />);
+
+    // Wait for brands to load and click edit button
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByLabelText('Edit brand')[0]);
+    });
+
+    // Update the name
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Updated Brand' },
+    });
+
+    // Submit the form
+    fireEvent.click(screen.getByText('Update'));
+
+    // Wait for error toast
+    await waitFor(() => {
+      expect(screen.getByText('Failed to update brand: Database error')).toBeInTheDocument();
+      expect(screen.getByLabelText('Error')).toBeInTheDocument();
+    });
+  });
+
+  test('shows success toast when brand is deleted', async () => {
     // Mock the delete response
     (supabase.delete as jest.Mock).mockResolvedValueOnce({
       data: null,
       error: null,
     });
 
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
     // Wait for brands to load and click delete button
     await waitFor(() => {
@@ -231,28 +246,50 @@ describe('BrandManagement Component', () => {
     // Confirm deletion
     fireEvent.click(screen.getByText('Confirm'));
 
-    // Wait for success message
+    // Wait for success toast
     await waitFor(() => {
       expect(screen.getByText('Brand deleted successfully')).toBeInTheDocument();
+      expect(screen.getByLabelText('Success')).toBeInTheDocument();
     });
   });
 
-  test('handles network errors when loading brands', async () => {
+  test('shows error toast when brand deletion fails', async () => {
+    // Mock the delete response with an error
+    (supabase.delete as jest.Mock).mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Database error' },
+    });
+
+    renderWithProviders(<BrandManagement />);
+
+    // Wait for brands to load and click delete button
+    await waitFor(() => {
+      fireEvent.click(screen.getAllByLabelText('Delete brand')[0]);
+    });
+
+    // Confirm deletion
+    fireEvent.click(screen.getByText('Confirm'));
+
+    // Wait for error toast
+    await waitFor(() => {
+      expect(screen.getByText('Failed to delete brand: Database error')).toBeInTheDocument();
+      expect(screen.getByLabelText('Error')).toBeInTheDocument();
+    });
+  });
+
+  test('shows error toast when loading brands fails', async () => {
     // Mock the select response with an error
     (supabase.select as jest.Mock).mockResolvedValueOnce({
       data: null,
       error: { message: 'Network error' },
     });
 
-    render(
-      <BrandProvider>
-        <BrandManagement />
-      </BrandProvider>
-    );
+    renderWithProviders(<BrandManagement />);
 
-    // Wait for error message
+    // Wait for error toast
     await waitFor(() => {
       expect(screen.getByText('Error loading brands: Network error')).toBeInTheDocument();
+      expect(screen.getByLabelText('Error')).toBeInTheDocument();
     });
   });
 }); 

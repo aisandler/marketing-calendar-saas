@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import AuthLayout from './layouts/AuthLayout';
 import DashboardLayout from './layouts/DashboardLayout';
 import Login from './pages/auth/Login';
@@ -83,42 +84,44 @@ const Root = () => {
 // App component
 function App() {
   return (
-    <Router>
-      <ToastProvider>
-        <AuthProvider>
-          <Routes>
-            {/* Auth Routes */}
-            <Route element={<AuthLayout />}>
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-            </Route>
-            
-            {/* Dashboard Routes (Protected) */}
-            <Route element={
-              <ProtectedRoute>
-                <DashboardLayout />
-              </ProtectedRoute>
-            }>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/calendar" element={<CalendarView />} />
-              <Route path="/briefs" element={<BriefsList />} />
-              <Route path="/briefs/:id" element={<BriefDetail />} />
-              <Route path="/briefs/create" element={<CreateBrief />} />
-              <Route path="/briefs/:id/edit" element={<CreateBrief />} />
-              <Route path="/resources" element={<ResourceManagement />} />
-              <Route path="/campaigns" element={<CampaignsList />} />
-              <Route path="/users" element={<UserManagement />} />
-            </Route>
-            
-            {/* Root path */}
-            <Route path="/" element={<Root />} />
-            
-            {/* 404 */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </ToastProvider>
-    </Router>
+    <ErrorBoundary>
+      <Router>
+        <ToastProvider>
+          <AuthProvider>
+            <Routes>
+              {/* Auth Routes */}
+              <Route element={<AuthLayout />}>
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+              </Route>
+              
+              {/* Dashboard Routes (Protected) */}
+              <Route element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/calendar" element={<CalendarView />} />
+                <Route path="/briefs" element={<BriefsList />} />
+                <Route path="/briefs/:id" element={<BriefDetail />} />
+                <Route path="/briefs/create" element={<CreateBrief />} />
+                <Route path="/briefs/:id/edit" element={<CreateBrief />} />
+                <Route path="/resources" element={<ResourceManagement />} />
+                <Route path="/campaigns" element={<CampaignsList />} />
+                <Route path="/users" element={<UserManagement />} />
+              </Route>
+              
+              {/* Root path */}
+              <Route path="/" element={<Root />} />
+              
+              {/* 404 */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </ToastProvider>
+      </Router>
+    </ErrorBoundary>
   );
 }
 
