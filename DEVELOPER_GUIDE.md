@@ -474,18 +474,32 @@ describe('Login', () => {
 
 ## Performance Considerations
 
-### Optimizations
+### Database Queries
+- Use appropriate indexes for frequently queried columns
+- Implement pagination for large result sets
+- Use efficient joins and avoid N+1 queries
 
-- **Memoization**: Use `useMemo` and `useCallback` for expensive calculations and functions
-- **Code Splitting**: Implement React.lazy and Suspense for code splitting
-- **Pagination**: Implement pagination for large data sets
-- **Virtualization**: Use virtualization for long lists
+### React Components
+- Implement proper memoization for expensive computations
+- Use virtual scrolling for long lists
+- Lazy load components when appropriate
 
-### Potential Bottlenecks
+### State Management
+- Keep state as local as possible
+- Use appropriate caching strategies
+- Implement optimistic updates where applicable
 
-- **Large Data Sets**: Fetching and rendering large lists of briefs or resources
-- **Gantt Chart**: The DHTMLX Gantt chart can be performance-intensive with many items
-- **Image Loading**: Avatar images and other assets should be optimized
+## TypeScript Tips
+
+### Type Definitions
+- Keep types in dedicated files under `src/types`
+- Use strict type checking
+- Implement proper interface segregation
+
+### Best Practices
+- Use type inference where possible
+- Implement proper error handling with type guards
+- Keep type definitions DRY
 
 ## Known Issues and Workarounds
 

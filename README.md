@@ -1,58 +1,23 @@
 # Marketing Calendar SaaS
 
-A comprehensive marketing calendar application for managing marketing briefs, resources, and tradeshows.
-
-![Marketing Calendar](https://i.imgur.com/JKgXPpL.png)
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Project Structure](#project-structure)
-- [Getting Started](#getting-started)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-  - [Database Setup](#database-setup)
-  - [Environment Variables](#environment-variables)
-- [Authentication](#authentication)
-- [Development](#development)
-  - [Available Scripts](#available-scripts)
-  - [Code Style](#code-style)
-- [Data Models](#data-models)
-- [Component Architecture](#component-architecture)
-- [API Integration](#api-integration)
-- [Deployment](#deployment)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Overview
-
-Marketing Calendar is a SaaS application designed to help marketing teams plan, organize, and track their marketing activities. It provides a centralized platform for managing marketing briefs, resources, and tradeshows, with a visual calendar interface for timeline management.
+A comprehensive marketing resource management platform that helps teams manage their marketing briefs and campaigns effectively.
 
 ## Features
 
-- **User Management**: Role-based access control with admin, manager, and contributor roles
-- **Marketing Briefs**: Create, edit, and manage marketing briefs with detailed specifications
-- **Resource Management**: Assign and track internal and external resources
-- **Calendar View**: Visual Gantt chart for timeline management
-- **Tradeshow Planning**: Manage tradeshow events and related marketing activities
-- **Dashboard**: Overview of key metrics and upcoming deadlines
-- **History Tracking**: Track changes to briefs for accountability
+- **Campaign Management**: Organize and track marketing campaigns
+- **Brief Management**: Create and manage marketing briefs with detailed specifications
+- **Resource Planning**: Track resource allocation and capacity
+- **Brand Management**: Organize content by brand
+- **Collaboration**: Team-based workflow with roles and permissions
+- **Analytics**: Track progress and resource utilization
 
 ## Tech Stack
 
-- **Frontend**: React, TypeScript, Vite
-- **UI Components**: Custom components with Tailwind CSS
-- **State Management**: React Context API
-- **Routing**: React Router
-- **Form Handling**: React Hook Form with Zod validation
-- **Backend**: Supabase (Backend as a Service)
-- **Database**: PostgreSQL (via Supabase)
+- **Frontend**: React with TypeScript
+- **Styling**: Tailwind CSS
+- **Backend**: Supabase
 - **Authentication**: Supabase Auth
-- **Calendar**: DHTMLX Gantt
-- **Icons**: Lucide React
+- **Database**: PostgreSQL (via Supabase)
 
 ## Project Structure
 
@@ -62,6 +27,7 @@ marketing-calendar-saas/
 ├── src/                     # Source code
 │   ├── components/          # Reusable UI components
 │   │   ├── auth/            # Authentication-related components
+│   │   └── ui/              # UI components (Button, Input, etc.)
 │   │   └── ui/              # UI components (Button, Input, etc.)
 │   ├── contexts/            # React context providers
 │   │   └── AuthContext.tsx  # Authentication context
@@ -350,33 +316,11 @@ const fetchBriefs = async () => {
 
 ## Troubleshooting
 
-### Common Issues
+If you're experiencing issues:
 
-#### Authentication Issues
-
-If you're having trouble with authentication:
-
-1. Check that your Supabase URL and anon key are correct in the `.env` file
-2. Ensure that Email/Password sign-in is enabled in Supabase
-3. Check that the user exists in both the auth system and the `users` table
-4. Run the `fix_auth_issues.sql` script to fix common auth issues
-
-#### Database Issues
-
-If you're having issues with database operations:
-
-1. Check that the tables are created correctly using the `supabase_setup.sql` script
-2. Ensure that Row Level Security (RLS) policies are set up correctly
-3. Run the `fix_rls_policy.sql` script to fix common RLS issues
-4. Check that the user has the appropriate role for the operation they're trying to perform
-
-#### Calendar View Issues
-
-If the Gantt chart in the Calendar view isn't working:
-
-1. Check that the dhtmlx-gantt library is installed
-2. Ensure that the Gantt chart is properly initialized in the `CalendarView` component
-3. Check the browser console for any JavaScript errors
+1. Check that all dependencies are installed correctly
+2. Verify your Supabase connection settings
+3. Clear your browser cache if you see stale data
 
 ## Contributing
 

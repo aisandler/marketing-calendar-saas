@@ -43,6 +43,12 @@ Welcome to the Marketing Calendar SaaS application! This guide will help you nav
 - [Troubleshooting](#troubleshooting)
   - [Common Issues](#common-issues)
   - [Getting Help](#getting-help)
+- [User Roles and Permissions](#user-roles-and-permissions)
+- [Managing Campaigns](#managing-campaigns)
+- [Working with Briefs](#working-with-briefs)
+- [Resource Management](#resource-management)
+- [Brand Management](#brand-management)
+- [Reports and Analytics](#reports-and-analytics)
 
 ## Getting Started
 
@@ -394,4 +400,36 @@ If you encounter issues not covered in this guide:
 
 This user guide covers the basic functionality of the Marketing Calendar SaaS application. As the application evolves, this guide will be updated to reflect new features and improvements.
 
-For technical issues or questions not covered here, please contact your system administrator or support team. 
+For technical issues or questions not covered here, please contact your system administrator or support team.
+
+## User Roles and Permissions
+
+## Managing Campaigns
+
+## Working with Briefs
+
+### Creating a Brief
+
+1. Navigate to the Briefs section
+2. Click "New Brief"
+3. Fill in the required information:
+   - Title
+   - Description
+   - Brand
+   - Start Date
+   - Due Date
+   - Resource Assignment
+4. Click "Create Brief"
+
+### Managing Briefs
+
+- View brief details by clicking on a brief
+- Update brief status as work progresses
+- Add comments and attachments as needed
+- Track resource allocation and hours
+
+## Resource Management
+
+## Brand Management
+
+## Reports and Analytics 
