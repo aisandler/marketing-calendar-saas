@@ -1,180 +1,204 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
+import { Input } from '../ui/Input';
+import { Button } from '../ui/Button';
+import { Search, X } from 'lucide-react';
 
 interface Brand {
   id: string;
   name: string;
 }
 
-interface FilterProps {
-  onFilterChange: (filters: {
-    search: string;
-    status: string;
-    brand: string;
-    dateRange: {
-      start: string;
-      end: string;
-    };
-  }) => void;
+interface Filters {
+  search: string;
+  status: string;
+  brand: string;
+  dateRange: {
+    start: string;
+    end: string;
+  };
 }
 
-export default function CampaignFilters({ onFilterChange }: FilterProps) {
+interface CampaignFiltersProps {
+  onFilterChange: (filters: Filters) => void;
+}
+
+const CampaignFilters: React.FC<CampaignFiltersProps> = ({ onFilterChange }) => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [search, setSearch] = useState(searchParams.get('search') || '');
-  const [status, setStatus] = useState(searchParams.get('status') || '');
-  const [brand, setBrand] = useState(searchParams.get('brand') || '');
-  const [dateStart, setDateStart] = useState(searchParams.get('dateStart') || '');
-  const [dateEnd, setDateEnd] = useState(searchParams.get('dateEnd') || '');
+  const [filters, setFilters] = useState<Filters>({
+    search: searchParams.get('search') || '',
+    status: searchParams.get('status') || '',
+    brand: searchParams.get('brand') || '',
+    dateRange: {
+      start: searchParams.get('dateStart') || '',
+      end: searchParams.get('dateEnd') || '',
+    },
+  });
 
   useEffect(() => {
-    fetchBrands();
-  }, []);
-
-  useEffect(() => {
-    const filters = {
-      search,
-      status,
-      brand,
-      dateRange: {
-        start: dateStart,
-        end: dateEnd,
-      },
-    };
-
-    // Update URL params
-    const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (status) params.set('status', status);
-    if (brand) params.set('brand', brand);
-    if (dateStart) params.set('dateStart', dateStart);
-    if (dateEnd) params.set('dateEnd', dateEnd);
-    setSearchParams(params);
-
-    // Notify parent component
-    onFilterChange(filters);
-  }, [search, status, brand, dateStart, dateEnd, setSearchParams, onFilterChange]);
-
-  const fetchBrands = async () => {
-    try {
+    const fetchBrands = async () => {
       const { data } = await supabase
         .from('brands')
         .select('id, name')
         .order('name');
+      
       setBrands(data || []);
-    } catch (error) {
-      console.error('Error fetching brands:', error);
-    }
+    };
+
+    fetchBrands();
+  }, []);
+
+  const handleFilterChange = (key: keyof Filters, value: string | { start: string; end: string }) => {
+    const newFilters = {
+      ...filters,
+      [key]: value,
+    };
+    setFilters(newFilters);
+
+    // Update URL params
+    const params = new URLSearchParams();
+    params.set('search', newFilters.search);
+    if (newFilters.status) params.set('status', newFilters.status);
+    if (newFilters.brand) params.set('brand', newFilters.brand);
+    if (newFilters.dateRange.start) params.set('dateStart', newFilters.dateRange.start);
+    if (newFilters.dateRange.end) params.set('dateEnd', newFilters.dateRange.end);
+    setSearchParams(params);
+
+    onFilterChange(newFilters);
   };
 
-  const clearFilters = () => {
-    setSearch('');
-    setStatus('');
-    setBrand('');
-    setDateStart('');
-    setDateEnd('');
+  const resetFilters = () => {
+    const emptyFilters: Filters = {
+      search: '',
+      status: '',
+      brand: '',
+      dateRange: {
+        start: '',
+        end: '',
+      },
+    };
+    setFilters(emptyFilters);
+    setSearchParams(new URLSearchParams());
+    onFilterChange(emptyFilters);
   };
 
   return (
-    <div className="bg-white shadow sm:rounded-lg mb-6">
-      <div className="p-4 sm:p-6">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {/* Search */}
-          <div>
-            <label htmlFor="search" className="block text-sm font-medium text-gray-700">
-              Search
-            </label>
-            <input
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Search */}
+        <div>
+          <label htmlFor="search" className="block text-sm font-medium text-gray-700">
+            Search
+          </label>
+          <div className="mt-1 relative">
+            <Input
               type="text"
               id="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
               placeholder="Search campaigns..."
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              className="pr-10"
             />
-          </div>
-
-          {/* Status */}
-          <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-              Status
-            </label>
-            <select
-              id="status"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            >
-              <option value="">All Statuses</option>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="complete">Complete</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-          </div>
-
-          {/* Brand */}
-          <div>
-            <label htmlFor="brand" className="block text-sm font-medium text-gray-700">
-              Brand
-            </label>
-            <select
-              id="brand"
-              value={brand}
-              onChange={(e) => setBrand(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            >
-              <option value="">All Brands</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date Range */}
-          <div>
-            <label htmlFor="dateStart" className="block text-sm font-medium text-gray-700">
-              Start Date
-            </label>
-            <input
-              type="date"
-              id="dateStart"
-              value={dateStart}
-              onChange={(e) => setDateStart(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="dateEnd" className="block text-sm font-medium text-gray-700">
-              End Date
-            </label>
-            <input
-              type="date"
-              id="dateEnd"
-              value={dateEnd}
-              onChange={(e) => setDateEnd(e.target.value)}
-              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-            />
+            {filters.search && (
+              <button
+                type="button"
+                onClick={() => handleFilterChange('search', '')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              >
+                <X className="h-4 w-4 text-gray-400" />
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Clear Filters */}
-        {(search || status || brand || dateStart || dateEnd) && (
-          <div className="mt-4 flex justify-end">
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Clear Filters
-            </button>
-          </div>
-        )}
+        {/* Status */}
+        <div>
+          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+            Status
+          </label>
+          <select
+            id="status"
+            value={filters.status}
+            onChange={(e) => handleFilterChange('status', e.target.value)}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+          >
+            <option value="">All Statuses</option>
+            <option value="draft">Draft</option>
+            <option value="active">Active</option>
+            <option value="complete">Complete</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        {/* Brand */}
+        <div>
+          <label htmlFor="brand" className="block text-sm font-medium text-gray-700">
+            Brand
+          </label>
+          <select
+            id="brand"
+            value={filters.brand}
+            onChange={(e) => handleFilterChange('brand', e.target.value)}
+            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+          >
+            <option value="">All Brands</option>
+            {brands.map((brand) => (
+              <option key={brand.id} value={brand.id}>
+                {brand.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Date Range */}
+        <div>
+          <label htmlFor="dateStart" className="block text-sm font-medium text-gray-700">
+            Start Date
+          </label>
+          <Input
+            type="date"
+            id="dateStart"
+            value={filters.dateRange.start}
+            onChange={(e) =>
+              handleFilterChange('dateRange', {
+                ...filters.dateRange,
+                start: e.target.value,
+              })
+            }
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <label htmlFor="dateEnd" className="block text-sm font-medium text-gray-700">
+            End Date
+          </label>
+          <Input
+            type="date"
+            id="dateEnd"
+            value={filters.dateRange.end}
+            onChange={(e) =>
+              handleFilterChange('dateRange', {
+                ...filters.dateRange,
+                end: e.target.value,
+              })
+            }
+            className="mt-1"
+          />
+        </div>
       </div>
+
+      {/* Reset Filters */}
+      {(filters.search || filters.status || filters.brand || filters.dateRange.start || filters.dateRange.end) && (
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={resetFilters}>
+            Reset Filters
+          </Button>
+        </div>
+      )}
     </div>
   );
-} 
+};
+
+export default CampaignFilters; 

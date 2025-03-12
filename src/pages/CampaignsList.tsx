@@ -43,10 +43,7 @@ export default function CampaignsList() {
 
       let query = supabase
         .from('campaigns')
-        .select(`
-          *,
-          brand:brands(name)
-        `);
+        .select('*, brand:brands(id, name)');
 
       // Apply filters
       if (filters.search) {

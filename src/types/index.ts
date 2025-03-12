@@ -32,20 +32,23 @@ export interface Resource {
 export interface Brief {
   id: string;
   title: string;
-  channel: string;
+  status: BriefStatus;
   start_date: string;
   due_date: string;
-  resource_id: string | null;
-  approver_id: string | null;
-  status: BriefStatus;
-  priority: Priority;
-  description: string | null;
-  specifications: any | null;
-  estimated_hours: number | null;
-  expenses: number | null;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
+  channel?: string;
+  resource_id?: string;
+  approver_id?: string;
+  priority?: Priority;
+  description?: string;
+  specifications?: any;
+  estimated_hours?: number;
+  expenses?: number;
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  resource?: {
+    name: string;
+  } | null;
 }
 
 export interface Tradeshow {
@@ -64,4 +67,24 @@ export interface History {
   previous_state: any;
   new_state: any;
   created_at: string;
+}
+
+export interface Brand {
+  id: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  description: string | null;
+  brand_id: string;
+  start_date: string;
+  end_date: string;
+  status: 'draft' | 'active' | 'complete' | 'cancelled';
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  brand?: Brand;
 }

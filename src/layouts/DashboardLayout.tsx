@@ -12,7 +12,8 @@ import {
   Menu, 
   X, 
   Bell,
-  ChevronDown
+  ChevronDown,
+  Folders
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -29,11 +30,12 @@ const DashboardLayout: React.FC = () => {
   };
 
   const isActivePath = (path: string) => {
-    return location.pathname === path;
+    return location.pathname.startsWith(path);
   };
 
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Campaigns', href: '/campaigns', icon: Folders },
     { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Briefs', href: '/briefs', icon: FileText },
     { name: 'Resources', href: '/resources', icon: Users },

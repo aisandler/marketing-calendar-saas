@@ -5,11 +5,12 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Calendar, FileText, Clock, AlertTriangle, ChevronRight, Plus } from 'lucide-react';
-import type { Brief, Tradeshow } from '../types';
+import type { Brief, Tradeshow, BriefStatus, Priority } from '../types';
 
 const Dashboard = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [tradeshows, setTradeshows] = useState<Tradeshow[]>([]);
   const [stats, setStats] = useState({
@@ -23,70 +24,126 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch briefs
-        const { data: briefsData, error: briefsError } = await supabase
-          .from('briefs')
-          .select('*')
-          .order('due_date', { ascending: true })
-          .limit(5);
-        
-        if (briefsError) throw briefsError;
-        
-        // Fetch tradeshows
-        const today = new Date().toISOString().split('T')[0];
-        const { data: tradeshowsData, error: tradeshowsError } = await supabase
-          .from('tradeshows')
-          .select('*')
-          .gte('end_date', today)
-          .order('start_date', { ascending: true })
-          .limit(3);
-        
-        if (tradeshowsError) throw tradeshowsError;
-        
-        // Fetch stats
-        const { data: allBriefs, error: statsError } = await supabase
-          .from('briefs')
-          .select('status');
-        
-        if (statsError) throw statsError;
-        
-        // Calculate stats
-        const totalBriefs = allBriefs.length;
-        const pendingApproval = allBriefs.filter(b => b.status === 'pending_approval').length;
-        const inProgress = allBriefs.filter(b => b.status === 'in_progress').length;
-        
-        // Set state
-        setBriefs(briefsData as Brief[]);
-        setTradeshows(tradeshowsData as Tradeshow[]);
-        setStats({
-          totalBriefs,
-          pendingApproval,
-          inProgress,
-          resourceConflicts: 0 // This would require more complex calculation based on resource allocation
-        });
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        setError(null);
+
+        // Fetch briefs with error handling
+        try {
+          const { data: briefsData, error: briefsError } = await supabase
+            .from('briefs')
+            .select(`
+              id,
+              title,
+              status,
+              start_date,
+              due_date,
+              priority,
+              resource:resources(name)
+            `)
+            .order('due_date', { ascending: true })
+            .limit(5);
+
+          if (briefsError) {
+            console.error('Error fetching briefs:', briefsError);
+            setBriefs([]);
+          } else if (briefsData) {
+            const typedBriefs = briefsData.map(brief => {
+              const resourceData = Array.isArray(brief.resource) ? brief.resource[0] : brief.resource;
+              const typedBrief: Brief = {
+                ...brief,
+                status: brief.status as BriefStatus,
+                priority: brief.priority as Priority | undefined,
+                resource: resourceData && typeof resourceData === 'object' && 'name' in resourceData
+                  ? { name: String(resourceData.name) }
+                  : null
+              };
+              return typedBrief;
+            });
+            setBriefs(typedBriefs);
+            
+            // Calculate stats with type-safe filters
+            const stats = {
+              totalBriefs: typedBriefs.length,
+              pendingApproval: typedBriefs.filter(b => b.status === 'pending_approval').length,
+              inProgress: typedBriefs.filter(b => b.status === 'in_progress').length,
+              resourceConflicts: 0
+            };
+            setStats(stats);
+          }
+        } catch (err) {
+          console.error('Error processing briefs:', err);
+        }
+
+        // Fetch tradeshows with error handling
+        try {
+          const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+          const { data: tradeshowsData, error: tradeshowsError } = await supabase
+            .from('tradeshows')
+            .select('*')
+            .gte('end_date', today)
+            .order('start_date', { ascending: true })
+            .limit(5);
+
+          if (tradeshowsError) {
+            console.error('Error fetching tradeshows:', tradeshowsError);
+          } else {
+            setTradeshows(tradeshowsData || []);
+          }
+        } catch (err) {
+          console.error('Error processing tradeshows:', err);
+        }
+
+      } catch (err: any) {
+        console.error('Error fetching dashboard data:', err);
+        setError('Failed to load some dashboard data. Please try refreshing the page.');
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchDashboardData();
   }, []);
 
   const today = new Date();
   const upcomingDeadlines = briefs.filter(brief => {
-    const dueDate = new Date(brief.due_date);
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7 && diffDays >= 0;
+    try {
+      const dueDate = new Date(brief.due_date);
+      const diffTime = dueDate.getTime() - today.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return diffDays <= 7 && diffDays >= 0;
+    } catch (err) {
+      console.error('Error processing brief date:', err);
+      return false;
+    }
   });
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      <div className="p-4">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-4 bg-gray-200 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4">
+        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <AlertTriangle className="h-5 w-5 text-yellow-400" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm">{error}</p>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -178,9 +235,11 @@ const Dashboard = () => {
                   </p>
                 </div>
                 <div className="ml-4 flex-shrink-0 flex items-center space-x-2">
-                  <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(brief.priority)}`}>
-                    {brief.priority}
-                  </span>
+                  {brief.priority && (
+                    <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(brief.priority)}`}>
+                      {brief.priority}
+                    </span>
+                  )}
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
                     {brief.status.replace('_', ' ')}
                   </span>

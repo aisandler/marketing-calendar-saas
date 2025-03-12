@@ -7,14 +7,17 @@ interface Campaign {
   id: string;
   name: string;
   description: string | null;
+  campaign_type: 'tradeshow' | 'event';
   brand_id: string;
   start_date: string;
   end_date: string;
+  location: string | null;
   status: 'draft' | 'active' | 'complete' | 'cancelled';
   created_by: string;
   created_at: string;
   updated_at: string;
   brand: {
+    id: string;
     name: string;
   };
 }
@@ -47,14 +50,12 @@ export default function CampaignDetail() {
   const fetchCampaignData = async () => {
     try {
       setLoading(true);
+      setError(null);
       
       // Fetch campaign details
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
-        .select(`
-          *,
-          brand:brands(name)
-        `)
+        .select('*, brand:brands(id, name)')
         .eq('id', id)
         .single();
 
@@ -64,16 +65,9 @@ export default function CampaignDetail() {
       // Fetch associated briefs
       const { data: briefsData, error: briefsError } = await supabase
         .from('briefs')
-        .select(`
-          id,
-          title,
-          status,
-          start_date,
-          due_date,
-          resource:resources(name)
-        `)
+        .select('id, title, status, start_date, due_date, resource:resources(name)')
         .eq('campaign_id', id)
-        .order('start_date', { ascending: true });
+        .order('start_date');
 
       if (briefsError) throw briefsError;
       setBriefs(briefsData?.map(brief => ({

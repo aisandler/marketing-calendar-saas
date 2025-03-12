@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import AuthLayout from './layouts/AuthLayout';
+import DashboardLayout from './layouts/DashboardLayout';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Register from './pages/auth/Register';
 import Dashboard from './pages/Dashboard';
 import BriefsList from './pages/BriefsList';
@@ -21,15 +23,20 @@ function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Auth Routes */}
+          {/* Public Auth Routes */}
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
           </Route>
 
           {/* Protected Routes */}
-          <Route path="/" element={<AuthLayout />}>
-            <Route index element={<Dashboard />} />
+          <Route element={
+            <ProtectedRoute>
+              <DashboardLayout />
+            </ProtectedRoute>
+          }>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/campaigns" element={<CampaignsList />} />
             <Route path="/campaigns/new" element={<CreateCampaign />} />
             <Route path="/campaigns/:id" element={<CampaignDetail />} />
@@ -40,7 +47,11 @@ function App() {
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
             <Route path="/resources" element={<ResourceManagement />} />
             <Route path="/tradeshows" element={<TradeshowsList />} />
-            <Route path="/users" element={<UserManagement />} />
+            <Route path="/users" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <UserManagement />
+              </ProtectedRoute>
+            } />
           </Route>
 
           <Route path="*" element={<NotFound />} />
