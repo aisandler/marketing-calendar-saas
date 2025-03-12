@@ -134,12 +134,8 @@ const ResourceManagement = () => {
     try {
       setLoading(true);
       
-      // Check if resource is used in any briefs
-      const resourceBriefs = briefs.filter(b => b.resource_id === currentResource.id);
-      
-      if (resourceBriefs.length > 0) {
-        throw new Error('Cannot delete resource that is assigned to briefs');
-      }
+      // Resource relationship to briefs no longer exists in schema
+      // No need to check for dependent briefs
       
       const { error } = await supabase
         .from('resources')
@@ -177,13 +173,8 @@ const ResourceManagement = () => {
   };
 
   const getResourceUtilization = (resourceId: string) => {
-    const resourceBriefs = briefs.filter(b => 
-      b.resource_id === resourceId && 
-      b.status !== 'complete' && 
-      b.status !== 'cancelled'
-    );
-    
-    return resourceBriefs.length;
+    // Resource relationship to briefs no longer exists in schema
+    return 0;
   };
 
   const exportToCsv = () => {

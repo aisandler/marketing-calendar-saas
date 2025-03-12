@@ -7,16 +7,16 @@ interface Campaign {
   id: string;
   name: string;
   description: string | null;
-  campaign_type: 'tradeshow' | 'event';
+  campaign_type?: 'tradeshow' | 'event';
   brand_id: string;
   start_date: string;
   end_date: string;
-  location: string | null;
+  location?: string | null;
   status: 'draft' | 'active' | 'complete' | 'cancelled';
   created_by: string;
   created_at: string;
   updated_at: string;
-  brand: {
+  brand?: {
     id: string;
     name: string;
   };
@@ -52,30 +52,61 @@ export default function CampaignDetail() {
       setLoading(true);
       setError(null);
       
-      // Fetch campaign details
+      if (!id) {
+        setError('Campaign ID is missing');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Fetching campaign with ID:', id);
+      
+      // Fetch campaign details with better error handling
       const { data: campaignData, error: campaignError } = await supabase
         .from('campaigns')
         .select('*, brand:brands(id, name)')
         .eq('id', id)
         .single();
 
-      if (campaignError) throw campaignError;
+      if (campaignError) {
+        console.error('Campaign fetch error:', campaignError);
+        if (campaignError.code === 'PGRST116') {
+          setError('Campaign not found. It may have been deleted or you may not have permission to view it.');
+        } else {
+          setError(`Failed to load campaign: ${campaignError.message}`);
+        }
+        setLoading(false);
+        return;
+      }
+      
+      if (!campaignData) {
+        setError('Campaign not found');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Campaign data retrieved:', campaignData.id);
       setCampaign(campaignData);
 
-      // Fetch associated briefs
-      const { data: briefsData, error: briefsError } = await supabase
-        .from('briefs')
-        .select('id, title, status, start_date, due_date, resource:resources(name)')
-        .eq('campaign_id', id)
-        .order('start_date');
+      // Only fetch briefs if we have a valid campaign
+      try {
+        const { data: briefsData, error: briefsError } = await supabase
+          .from('briefs')
+          .select('id, title, status, start_date, due_date')
+          .eq('campaign_id', id)
+          .order('start_date');
 
-      if (briefsError) throw briefsError;
-      setBriefs(briefsData?.map(brief => ({
-        ...brief,
-        resource: brief.resource && typeof brief.resource === 'object' && 'name' in brief.resource
-          ? { name: brief.resource.name as string }
-          : null
-      })) || []);
+        if (briefsError) {
+          console.error('Briefs fetch error:', briefsError);
+        } else {
+          setBriefs(briefsData?.map(brief => ({
+            ...brief,
+            resource: null // Resource relationship no longer exists
+          })) || []);
+        }
+      } catch (briefErr) {
+        console.error('Error in briefs fetch:', briefErr);
+        // Don't fail the whole page if just briefs fail to load
+      }
 
     } catch (err) {
       console.error('Error fetching campaign data:', err);
@@ -155,7 +186,7 @@ export default function CampaignDetail() {
           </h2>
           <div className="mt-1 flex flex-col sm:mt-0 sm:flex-row sm:flex-wrap sm:space-x-6">
             <div className="mt-2 flex items-center text-sm text-gray-500">
-              Brand: {campaign.brand.name}
+              Brand: {campaign.brand?.name || 'Unknown'}
             </div>
             <div className="mt-2 flex items-center text-sm">
               <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(campaign.status)}`}>
@@ -234,9 +265,10 @@ export default function CampaignDetail() {
                           {brief.status}
                         </span>
                       </div>
+                      {/* Resource information removed as it no longer exists in schema */}
                       <div className="ml-2 flex-shrink-0 flex">
                         <p className="text-sm text-gray-500">
-                          {brief.resource?.name || 'Unassigned'}
+                          {/* No resource display */}
                         </p>
                       </div>
                     </div>

@@ -61,21 +61,53 @@ export default function CreateCampaign() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Get current user
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !userData.user?.id) {
+        throw new Error('Unable to get current user information. Please log in again.');
+      }
+      
+      const userId = userData.user.id;
+      console.log('Creating campaign for user:', userId);
+      
+      // Validate dates
+      const startDate = new Date(data.start_date);
+      const endDate = new Date(data.end_date);
+      
+      if (endDate < startDate) {
+        setError('End date cannot be before start date');
+        setLoading(false);
+        return;
+      }
 
+      // Insert the campaign
       const { data: campaign, error } = await supabase
         .from('campaigns')
         .insert([
           {
             ...data,
-            created_by: (await supabase.auth.getUser()).data.user?.id,
+            created_by: userId,
           },
         ])
         .select()
         .single();
 
-      if (error) throw error;
-
+      if (error) {
+        console.error('Error creating campaign:', error);
+        setError(`Failed to create campaign: ${error.message}`);
+        return;
+      }
+      
+      if (!campaign || !campaign.id) {
+        setError('Failed to create campaign: No ID returned');
+        return;
+      }
+      
+      console.log('Campaign created successfully with ID:', campaign.id);
       navigate(`/campaigns/${campaign.id}`);
+      
     } catch (err) {
       console.error('Error creating campaign:', err);
       setError('Failed to create campaign. Please try again.');

@@ -28,10 +28,25 @@ const BriefDetail = () => {
         
         if (!id) return;
         
-        // Fetch brief details
+        // Fetch brief details with explicit field selection to avoid schema mismatch
         const { data: briefData, error: briefError } = await supabase
           .from('briefs')
-          .select('*')
+          .select(`
+            id, 
+            title, 
+            description, 
+            status, 
+            start_date, 
+            due_date, 
+            channel,
+            approver_id,
+            created_by,
+            created_at,
+            updated_at,
+            estimated_hours,
+            expenses,
+            specifications
+          `)
           .eq('id', id)
           .single();
         
@@ -40,16 +55,8 @@ const BriefDetail = () => {
         
         setBrief(briefData as Brief);
         
-        // Fetch related data if needed
-        if (briefData.resource_id) {
-          const { data: resourceData } = await supabase
-            .from('resources')
-            .select('*')
-            .eq('id', briefData.resource_id)
-            .single();
-          
-          setResource(resourceData as Resource);
-        }
+        // Resources are no longer in the schema
+        setResource(null);
         
         if (briefData.approver_id) {
           const { data: approverData } = await supabase
@@ -219,9 +226,7 @@ const BriefDetail = () => {
               <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
                 {brief.status.replace('_', ' ')}
               </span>
-              <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(brief.priority)}`}>
-                {brief.priority}
-              </span>
+              {/* Priority field removed as it no longer exists in schema */}
               <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
                 {brief.channel}
               </span>
@@ -376,14 +381,14 @@ const BriefDetail = () => {
                 <dt className="text-sm font-medium text-gray-500">Estimated Hours</dt>
                 <dd className="text-sm text-gray-900 mt-1 flex items-center">
                   <Clock className="h-4 w-4 text-gray-400 mr-1" />
-                  {brief.estimated_hours !== null ? `${brief.estimated_hours} hours` : 'Not specified'}
+                  {brief.estimated_hours ? `${brief.estimated_hours} hours` : 'Not specified'}
                 </dd>
               </div>
               
               <div>
                 <dt className="text-sm font-medium text-gray-500">Expenses</dt>
                 <dd className="text-sm text-gray-900 mt-1">
-                  {brief.expenses !== null ? `$${brief.expenses.toFixed(2)}` : 'Not specified'}
+                  {brief.expenses ? `$${brief.expenses.toFixed(2)}` : 'Not specified'}
                 </dd>
               </div>
               

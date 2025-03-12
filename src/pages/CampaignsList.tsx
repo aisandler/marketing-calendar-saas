@@ -41,6 +41,8 @@ export default function CampaignsList() {
       setLoading(true);
       setError(null);
 
+      console.log('Fetching campaigns with filters:', filters);
+
       let query = supabase
         .from('campaigns')
         .select('*, brand:brands(id, name)');
@@ -71,11 +73,31 @@ export default function CampaignsList() {
 
       const { data, error: queryError } = await query;
 
-      if (queryError) throw queryError;
-      setCampaigns(data || []);
+      if (queryError) {
+        console.error('Error fetching campaigns:', queryError);
+        setError(`Failed to load campaigns: ${queryError.message}`);
+        return;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('No campaigns found');
+      } else {
+        console.log(`Fetched ${data.length} campaigns`);
+        
+        // Validate campaign data
+        const validCampaigns = data.filter(campaign => {
+          if (!campaign || !campaign.id) {
+            console.warn('Found invalid campaign data:', campaign);
+            return false;
+          }
+          return true;
+        });
+        
+        setCampaigns(validCampaigns);
+      }
     } catch (err) {
       console.error('Error fetching campaigns:', err);
-      setError('Failed to load campaigns.');
+      setError('Failed to load campaigns. Please try again.');
     } finally {
       setLoading(false);
     }

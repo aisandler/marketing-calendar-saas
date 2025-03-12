@@ -35,9 +35,7 @@ const Dashboard = () => {
               title,
               status,
               start_date,
-              due_date,
-              priority,
-              resource:resources(name)
+              due_date
             `)
             .order('due_date', { ascending: true })
             .limit(5);
@@ -46,15 +44,14 @@ const Dashboard = () => {
             console.error('Error fetching briefs:', briefsError);
             setBriefs([]);
           } else if (briefsData) {
+            // Convert to typed briefs
             const typedBriefs = briefsData.map(brief => {
-              const resourceData = Array.isArray(brief.resource) ? brief.resource[0] : brief.resource;
               const typedBrief: Brief = {
                 ...brief,
                 status: brief.status as BriefStatus,
-                priority: brief.priority as Priority | undefined,
-                resource: resourceData && typeof resourceData === 'object' && 'name' in resourceData
-                  ? { name: String(resourceData.name) }
-                  : null
+                // Priority field no longer available in the schema
+                priority: undefined,
+                resource: null // We no longer have resource name data
               };
               return typedBrief;
             });
@@ -73,24 +70,9 @@ const Dashboard = () => {
           console.error('Error processing briefs:', err);
         }
 
-        // Fetch tradeshows with error handling
-        try {
-          const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-          const { data: tradeshowsData, error: tradeshowsError } = await supabase
-            .from('tradeshows')
-            .select('*')
-            .gte('end_date', today)
-            .order('start_date', { ascending: true })
-            .limit(5);
-
-          if (tradeshowsError) {
-            console.error('Error fetching tradeshows:', tradeshowsError);
-          } else {
-            setTradeshows(tradeshowsData || []);
-          }
-        } catch (err) {
-          console.error('Error processing tradeshows:', err);
-        }
+        // Note: Tradeshows table has been removed from the schema
+        // Setting empty tradeshows array to avoid errors
+        setTradeshows([]);
 
       } catch (err: any) {
         console.error('Error fetching dashboard data:', err);
@@ -235,11 +217,7 @@ const Dashboard = () => {
                   </p>
                 </div>
                 <div className="ml-4 flex-shrink-0 flex items-center space-x-2">
-                  {brief.priority && (
-                    <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(brief.priority)}`}>
-                      {brief.priority}
-                    </span>
-                  )}
+                  {/* Priority field no longer available */}
                   <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
                     {brief.status.replace('_', ' ')}
                   </span>
@@ -259,41 +237,7 @@ const Dashboard = () => {
         )}
       </div>
 
-      {/* Upcoming tradeshows */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Upcoming Tradeshows</h3>
-        {tradeshows.length > 0 ? (
-          <div className="divide-y divide-gray-200">
-            {tradeshows.map((tradeshow) => (
-              <div key={tradeshow.id} className="py-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-900">{tradeshow.name}</h4>
-                    <p className="text-sm text-gray-500 mt-1">
-                      {formatDate(tradeshow.start_date)} - {formatDate(tradeshow.end_date)}
-                    </p>
-                  </div>
-                  <div className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
-                    Tradeshow
-                  </div>
-                </div>
-                {tradeshow.description && (
-                  <p className="mt-2 text-sm text-gray-600">{tradeshow.description}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-4">No upcoming tradeshows.</p>
-        )}
-        {tradeshows.length > 0 && (
-          <div className="mt-4">
-            <Link to="/tradeshows" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all tradeshows →
-            </Link>
-          </div>
-        )}
-      </div>
+      {/* Note: Tradeshows section removed as the table no longer exists in the schema */}
     </div>
   );
 };

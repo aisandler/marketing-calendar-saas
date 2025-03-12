@@ -27,17 +27,13 @@ const BriefsList = () => {
         // Fetch briefs
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('*')
+          .select('id, title, status, start_date, due_date, channel, resource_id, created_by')
           .order('due_date', { ascending: true });
         
         if (briefsError) throw briefsError;
         
-        // Fetch resources
-        const { data: resourcesData, error: resourcesError } = await supabase
-          .from('resources')
-          .select('*');
-        
-        if (resourcesError) throw resourcesError;
+        // Resources are no longer in the schema
+        const resourcesData = [];
         
         // Fetch users
         const { data: usersData, error: usersError } = await supabase
@@ -47,7 +43,12 @@ const BriefsList = () => {
         if (usersError) throw usersError;
         
         // Set state
-        setBriefs(briefsData as Brief[]);
+        setBriefs(briefsData.map(brief => ({
+          ...brief,
+          priority: undefined, // Priority no longer in schema
+          // Add other missing fields to match Brief type
+          resource: null
+        })) as Brief[]);
         setResources(resourcesData as Resource[]);
         setUsers(usersData as User[]);
       } catch (error) {
@@ -61,9 +62,8 @@ const BriefsList = () => {
   }, []);
 
   const getResourceName = (resourceId: string | null) => {
-    if (!resourceId) return 'Unassigned';
-    const resource = resources.find(r => r.id === resourceId);
-    return resource ? resource.name : 'Unknown';
+    // Resource feature has been removed from schema
+    return 'N/A';
   };
 
   const getUserName = (userId: string) => {
@@ -78,7 +78,7 @@ const BriefsList = () => {
       'Start Date',
       'Due Date',
       'Status',
-      'Priority',
+      // Priority removed as field no longer exists
       'Resource',
       'Created By'
     ].join(',');
@@ -89,7 +89,7 @@ const BriefsList = () => {
       formatDate(brief.start_date),
       formatDate(brief.due_date),
       brief.status.replace('_', ' '),
-      brief.priority,
+      // Priority removed as field no longer exists
       getResourceName(brief.resource_id),
       getUserName(brief.created_by)
     ].join(','));
@@ -125,14 +125,14 @@ const BriefsList = () => {
       return false;
     }
     
-    // Apply priority filter
-    if (priorityFilter && brief.priority !== priorityFilter) {
-      return false;
+    // Priority filter is no longer applicable since priority was removed from schema
+    if (priorityFilter) {
+      return false; // If priority filter is set, no results will match (since priority field doesn't exist)
     }
     
-    // Apply resource filter
-    if (resourceFilter && brief.resource_id !== resourceFilter) {
-      return false;
+    // Resource filter is no longer applicable since resource_id was removed from schema
+    if (resourceFilter) {
+      return false; // If resource filter is set, no results will match
     }
     
     return true;
@@ -229,24 +229,7 @@ const BriefsList = () => {
                 </select>
               </div>
 
-              {/* Priority filter */}
-              <div>
-                <label htmlFor="priority-filter" className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
-                <select
-                  id="priority-filter"
-                  value={priorityFilter || ''}
-                  onChange={(e) => setPriorityFilter(e.target.value || null)}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="">All Priorities</option>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
+              {/* Priority filter removed as priority field no longer exists */}
 
               {/* Resource filter */}
               <div>
@@ -301,9 +284,7 @@ const BriefsList = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Priority
-              </th>
+              {/* Priority column removed as field no longer exists */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Resource
               </th>
@@ -332,11 +313,6 @@ const BriefsList = () => {
                       {brief.status.replace('_', ' ')}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getPriorityColor(brief.priority)}`}>
-                      {brief.priority}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {getResourceName(brief.resource_id)}
                   </td>
@@ -347,7 +323,7 @@ const BriefsList = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
                   No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter ? (
                     <button 
                       onClick={resetFilters}
