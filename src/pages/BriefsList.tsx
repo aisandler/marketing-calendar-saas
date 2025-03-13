@@ -5,8 +5,9 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList } from 'lucide-react';
 import type { Resource, User } from '../types';
+import MarketingCalendar from '../components/MarketingCalendar';
 
 interface Brief {
   id: string;
@@ -57,12 +58,29 @@ const BriefsList = () => {
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [campaigns, setCampaigns] = useState<Array<any>>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
         setError(null);
+        
+        // Fetch campaigns
+        const { data: campaignsData, error: campaignsError } = await supabase
+          .from('campaigns')
+          .select(`
+            *,
+            brand:brands(id, name)
+          `)
+          .order('start_date', { ascending: true });
+        
+        if (campaignsError) {
+          console.error('Error fetching campaigns:', campaignsError);
+        } else {
+          setCampaigns(campaignsData || []);
+        }
         
         // Fetch briefs with * to get all columns
         const { data: briefsData, error: briefsError } = await supabase
@@ -167,7 +185,7 @@ const BriefsList = () => {
         setBrands(brandsData || []);
         setMediaTypes(uniqueMediaTypes);
       } catch (error: any) {
-        console.error('Error fetching briefs data:', error);
+        console.error('Error fetching data:', error);
         setError(error?.message || 'An unexpected error occurred while loading data');
       } finally {
         setLoading(false);
@@ -324,6 +342,25 @@ const BriefsList = () => {
           <h2 className="text-xl font-semibold text-gray-900">Briefs</h2>
 
           <div className="flex flex-wrap items-center gap-2">
+            {/* View toggle - Positioned first */}
+            <Button
+              variant="outline"
+              onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
+              className="px-3 py-2"
+            >
+              {viewMode === 'list' ? (
+                <>
+                  <Calendar className="h-5 w-5" />
+                  <span className="ml-2">Calendar</span>
+                </>
+              ) : (
+                <>
+                  <LayoutList className="h-5 w-5" />
+                  <span className="ml-2">List</span>
+                </>
+              )}
+            </Button>
+
             {/* Search */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -345,8 +382,6 @@ const BriefsList = () => {
               <SlidersHorizontal className="h-5 w-5" />
               <span className="ml-2">Filter</span>
             </Button>
-
-            {/* Calendar view temporarily removed */}
 
             {/* Export */}
             <Button 
@@ -472,86 +507,94 @@ const BriefsList = () => {
         )}
       </div>
 
-      {/* Briefs list */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Title
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Media Type
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Due Date
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Brand
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Resource
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created By
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredBriefs.length > 0 ? (
-              filteredBriefs.map((brief) => (
-                <tr key={brief.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-900">
-                      {brief.title}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {brief.channel}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(brief.due_date)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
-                      {brief.status.replace('_', ' ')}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {brief.brand?.name || 'Unknown'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {brief.resource?.name || 'Unassigned'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {brief.created_by_user?.name || 'Unknown'}
+      {viewMode === 'list' ? (
+        // Briefs list
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Title
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Media Type
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Due Date
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Brand
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Resource
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Created By
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredBriefs.length > 0 ? (
+                filteredBriefs.map((brief) => (
+                  <tr key={brief.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-900">
+                        {brief.title}
+                      </Link>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {brief.channel}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(brief.due_date)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
+                        {brief.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {brief.brand?.name || 'Unknown'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {brief.resource?.name || 'Unassigned'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {brief.created_by_user?.name || 'Unknown'}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
+                      <button 
+                        onClick={resetFilters}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        Clear filters
+                      </button>
+                    ) : (
+                      <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
+                        Create your first brief
+                      </Link>
+                    )}
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
-                  No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
-                    <button 
-                      onClick={resetFilters}
-                      className="text-blue-600 hover:text-blue-800"
-                    >
-                      Clear filters
-                    </button>
-                  ) : (
-                    <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
-                      Create your first brief
-                    </Link>
-                  )}
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        // Calendar view
+        <MarketingCalendar 
+          briefs={filteredBriefs}
+          campaigns={campaigns}
+        />
+      )}
     </div>
   );
 };
