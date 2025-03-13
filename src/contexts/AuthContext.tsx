@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const authInProgress = useRef<boolean>(false);
+  const initializationComplete = useRef<boolean>(false);
 
   // Function to create a base user from session
   const createBaseUser = (session: Session): User => {
@@ -80,33 +81,54 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Initialize auth state
   useEffect(() => {
+    let mounted = true;
+
     const initializeAuth = async () => {
       try {
         // Get current session
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
+        if (error) {
+          console.error('Error getting session:', error);
+          if (mounted) {
+            setLoading(false);
+            initializationComplete.current = true;
+          }
+          return;
+        }
+
         if (session) {
           await handleAuthStateChange(session);
         }
+
+        if (mounted) {
+          setLoading(false);
+          initializationComplete.current = true;
+        }
       } catch (error) {
         console.error('Error initializing auth:', error);
-      } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          initializationComplete.current = true;
+        }
       }
     };
 
-    initializeAuth();
-
-    // Listen for auth changes
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') {
+      if (!initializationComplete.current) return; // Skip if initial load isn't complete
+
+      if (event === 'SIGNED_IN' && session) {
         await handleAuthStateChange(session);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
       }
     });
 
+    initializeAuth();
+
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);

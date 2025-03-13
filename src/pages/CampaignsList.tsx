@@ -18,6 +18,7 @@ interface Campaign {
   brand: {
     name: string;
   };
+  briefs: { count: number }[];
 }
 
 interface Filters {
@@ -45,7 +46,11 @@ export default function CampaignsList() {
 
       let query = supabase
         .from('campaigns')
-        .select('*, brand:brands(id, name)');
+        .select(`
+          *,
+          brand:brands(id, name),
+          briefs(count)
+        `, { count: 'exact' });
 
       // Apply filters
       if (filters.search) {
@@ -182,7 +187,10 @@ export default function CampaignsList() {
                           {campaign.status}
                         </span>
                       </div>
-                      <div className="ml-2 flex-shrink-0 flex">
+                      <div className="ml-2 flex-shrink-0 flex items-center space-x-4">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100">
+                          {(campaign.briefs?.[0]?.count || 0)} brief{(campaign.briefs?.[0]?.count === 1) ? '' : 's'}
+                        </span>
                         <p className="text-sm text-gray-500">
                           {campaign.brand?.name}
                         </p>
