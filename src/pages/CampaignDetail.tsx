@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 
@@ -28,26 +28,86 @@ interface Brief {
   status: string;
   start_date: string;
   due_date: string;
-  resource: {
+  resource_id?: string;
+  estimated_hours?: number;
+  expenses?: number;
+  resource?: {
+    id: string;
     name: string;
+    type: string;
+    hourly_rate?: number;
   } | null;
 }
 
 export default function CampaignDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Cost summary states
+  const [totalResourceCost, setTotalResourceCost] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalCost, setTotalCost] = useState(0);
+  const [resourceCostByType, setResourceCostByType] = useState<{[key: string]: number}>({});
+  const [costTimeline, setCostTimeline] = useState<{date: string; cost: number}[]>([]);
 
+  const calculateCosts = useCallback(() => {
+    let resourceCost = 0;
+    let expenses = 0;
+    const costByType: {[key: string]: number} = {
+      internal: 0,
+      agency: 0,
+      freelancer: 0
+    };
+    
+    // Create timeline data structure
+    const timelineData: {[key: string]: number} = {};
+    
+    briefs.forEach(brief => {
+      // Calculate resource cost if hourly rate exists
+      if (brief.resource?.hourly_rate && brief.estimated_hours) {
+        const briefResourceCost = brief.resource.hourly_rate * brief.estimated_hours;
+        resourceCost += briefResourceCost;
+        
+        // Add to resource type total
+        const resourceType = brief.resource.type || 'other';
+        costByType[resourceType] = (costByType[resourceType] || 0) + briefResourceCost;
+        
+        // Add to timeline
+        const briefDate = format(new Date(brief.due_date), 'yyyy-MM-dd');
+        timelineData[briefDate] = (timelineData[briefDate] || 0) + briefResourceCost;
+      }
+      
+      // Add expenses
+      if (brief.expenses) {
+        expenses += brief.expenses;
+        
+        // Add expenses to timeline
+        const briefDate = format(new Date(brief.due_date), 'yyyy-MM-dd');
+        timelineData[briefDate] = (timelineData[briefDate] || 0) + brief.expenses;
+      }
+    });
+    
+    // Convert timeline data to array and sort by date
+    const timeline = Object.entries(timelineData)
+      .map(([date, cost]) => ({ date, cost }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    setTotalResourceCost(resourceCost);
+    setTotalExpenses(expenses);
+    setTotalCost(resourceCost + expenses);
+    setResourceCostByType(costByType);
+    setCostTimeline(timeline);
+  }, [briefs]);
+  
+  // Calculate costs whenever briefs change
   useEffect(() => {
-    if (id) {
-      fetchCampaignData();
-    }
-  }, [id]);
+    calculateCosts();
+  }, [calculateCosts]);
 
-  const fetchCampaignData = async () => {
+  const fetchCampaignData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -91,17 +151,24 @@ export default function CampaignDetail() {
       try {
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('id, title, status, start_date, due_date')
+          .select(`
+            id, 
+            title, 
+            status, 
+            start_date, 
+            due_date, 
+            resource_id, 
+            estimated_hours, 
+            expenses,
+            resource:resources(id, name, type, hourly_rate)
+          `)
           .eq('campaign_id', id)
           .order('start_date');
 
         if (briefsError) {
           console.error('Briefs fetch error:', briefsError);
         } else {
-          setBriefs(briefsData?.map(brief => ({
-            ...brief,
-            resource: null // Resource relationship no longer exists
-          })) || []);
+          setBriefs(briefsData || []);
         }
       } catch (briefErr) {
         console.error('Error in briefs fetch:', briefErr);
@@ -114,7 +181,14 @@ export default function CampaignDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+  
+  // Fetch campaign data when ID changes
+  useEffect(() => {
+    if (id) {
+      fetchCampaignData();
+    }
+  }, [id, fetchCampaignData]);
 
   const getStatusColor = (status: Campaign['status']) => {
     switch (status) {
@@ -234,6 +308,210 @@ export default function CampaignDetail() {
           </dl>
         </div>
       </div>
+      
+      {/* Cost Summary Section */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg mb-6">
+        <div className="px-4 py-5 sm:px-6">
+          <h3 className="text-lg leading-6 font-medium text-gray-900">
+            Cost Summary
+          </h3>
+        </div>
+        <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Cost Breakdown */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Cost Breakdown</h4>
+              <dl className="space-y-2">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Resource Cost:</dt>
+                  <dd className="text-sm font-medium text-gray-900">${totalResourceCost.toFixed(2)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Additional Expenses:</dt>
+                  <dd className="text-sm font-medium text-gray-900">${totalExpenses.toFixed(2)}</dd>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-gray-200">
+                  <dt className="text-sm font-medium text-gray-700">Total Campaign Cost:</dt>
+                  <dd className="text-sm font-medium text-emerald-600">${totalCost.toFixed(2)}</dd>
+                </div>
+              </dl>
+            </div>
+            
+            {/* Cost by Resource Type */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Cost by Resource Type</h4>
+              <dl className="space-y-2">
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Internal:</dt>
+                  <dd className="text-sm font-medium text-gray-900">${(resourceCostByType.internal || 0).toFixed(2)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Agency:</dt>
+                  <dd className="text-sm font-medium text-gray-900">${(resourceCostByType.agency || 0).toFixed(2)}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-sm text-gray-500">Freelancer:</dt>
+                  <dd className="text-sm font-medium text-gray-900">${(resourceCostByType.freelancer || 0).toFixed(2)}</dd>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-gray-200">
+                  <dt className="text-sm font-medium text-gray-700">Total Resource Cost:</dt>
+                  <dd className="text-sm font-medium text-gray-900">${totalResourceCost.toFixed(2)}</dd>
+                </div>
+              </dl>
+            </div>
+            
+            {/* Cost Distribution Chart */}
+            <div className="md:col-span-2 mt-4">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Cost Distribution</h4>
+              <div className="h-6 bg-gray-200 rounded-full overflow-hidden">
+                {Object.entries(resourceCostByType).map(([type, cost]) => {
+                  const percentage = totalCost > 0 ? (cost / totalCost) * 100 : 0;
+                  const colors = {
+                    internal: 'bg-blue-500',
+                    agency: 'bg-purple-500',
+                    freelancer: 'bg-emerald-500',
+                    other: 'bg-gray-500'
+                  };
+                  const color = colors[type as keyof typeof colors] || colors.other;
+                  
+                  if (percentage <= 0) return null;
+                  
+                  return (
+                    <div 
+                      key={type}
+                      className={`h-full ${color} relative inline-block`}
+                      style={{ width: `${percentage}%` }}
+                      title={`${type}: $${cost.toFixed(2)} (${percentage.toFixed(1)}%)`}
+                    />
+                  );
+                })}
+                
+                {/* Expenses portion */}
+                {totalExpenses > 0 && (
+                  <div 
+                    className="h-full bg-amber-500 relative inline-block" 
+                    style={{ width: `${totalCost > 0 ? (totalExpenses / totalCost) * 100 : 0}%` }}
+                    title={`Expenses: $${totalExpenses.toFixed(2)} (${totalCost > 0 ? ((totalExpenses / totalCost) * 100).toFixed(1) : 0}%)`}
+                  />
+                )}
+              </div>
+              
+              {/* Legend */}
+              <div className="flex flex-wrap gap-4 mt-2">
+                <div className="flex items-center text-xs">
+                  <div className="w-3 h-3 bg-blue-500 rounded-sm mr-1" />
+                  <span>Internal</span>
+                </div>
+                <div className="flex items-center text-xs">
+                  <div className="w-3 h-3 bg-purple-500 rounded-sm mr-1" />
+                  <span>Agency</span>
+                </div>
+                <div className="flex items-center text-xs">
+                  <div className="w-3 h-3 bg-emerald-500 rounded-sm mr-1" />
+                  <span>Freelancer</span>
+                </div>
+                <div className="flex items-center text-xs">
+                  <div className="w-3 h-3 bg-amber-500 rounded-sm mr-1" />
+                  <span>Expenses</span>
+                </div>
+              </div>
+            </div>
+            
+            {/* Cost Timeline Chart */}
+            <div className="md:col-span-2 mt-6">
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Cost Timeline</h4>
+              
+              {costTimeline.length === 0 ? (
+                <div className="text-sm text-gray-500 text-center p-4 border border-gray-200 rounded-md">
+                  No cost data available for timeline
+                </div>
+              ) : (
+                <>
+                  <div className="relative h-40 border-b border-l border-gray-300">
+                    <div className="absolute bottom-0 left-0 w-full h-full">
+                      {/* Y-axis labels */}
+                      <div className="absolute -left-10 bottom-0 h-full flex flex-col justify-between text-xs text-gray-500">
+                        <div>$</div>
+                        <div>$0</div>
+                      </div>
+                      
+                      {/* Timeline bars */}
+                      <div className="absolute bottom-0 left-0 right-0 flex items-end justify-between h-full px-2">
+                        {costTimeline.map((point, index) => {
+                          const maxCost = Math.max(...costTimeline.map(p => p.cost));
+                          const heightPercentage = maxCost > 0 ? (point.cost / maxCost) * 100 : 0;
+                          
+                          return (
+                            <div 
+                              key={index} 
+                              className="group relative mx-1 flex-1"
+                              style={{ maxWidth: '30px' }}
+                            >
+                              <div 
+                                className="bg-indigo-500 w-full" 
+                                style={{ height: `${heightPercentage}%` }}
+                              ></div>
+                              <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 hidden group-hover:block bg-gray-800 text-white text-xs rounded px-2 py-1 mb-1 whitespace-nowrap">
+                                {format(new Date(point.date), 'MMM d, yyyy')}: ${point.cost.toFixed(2)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* X-axis labels */}
+                  <div className="flex justify-between text-xs text-gray-500 mt-1 px-2">
+                    {costTimeline.map((point, index) => (
+                      <div 
+                        key={index}
+                        className="flex-1 text-center overflow-hidden"
+                        style={{ maxWidth: '30px' }}
+                      >
+                        {format(new Date(point.date), 'M/d')}
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Cumulative cost line */}
+                  <div className="mt-6 text-sm font-medium text-gray-700">
+                    Cumulative Campaign Cost
+                  </div>
+                  <div className="relative h-20 mt-2 border-b border-l border-gray-300">
+                    <div className="absolute bottom-0 left-0 w-full h-full">
+                      {/* Cumulative cost line chart */}
+                      <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+                        <path
+                          d={`
+                            M ${4} ${95 - (0 / totalCost * 90)}
+                            ${costTimeline.map((point, index) => {
+                              // Calculate cumulative cost up to this point
+                              const cumulativeCost = costTimeline
+                                .slice(0, index + 1)
+                                .reduce((sum, p) => sum + p.cost, 0);
+                              
+                              const x = 4 + ((index + 1) / costTimeline.length) * 95;
+                              const y = totalCost > 0 
+                                ? 95 - (cumulativeCost / totalCost * 90) 
+                                : 95;
+                              
+                              return `L ${x} ${y}`;
+                            }).join(' ')}
+                          `}
+                          fill="none"
+                          stroke="#4f46e5"
+                          strokeWidth="2"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="bg-white shadow overflow-hidden sm:rounded-lg">
         <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
@@ -265,11 +543,21 @@ export default function CampaignDetail() {
                           {brief.status}
                         </span>
                       </div>
-                      {/* Resource information removed as it no longer exists in schema */}
-                      <div className="ml-2 flex-shrink-0 flex">
-                        <p className="text-sm text-gray-500">
-                          {/* No resource display */}
-                        </p>
+                      <div className="ml-2 flex-shrink-0 flex items-center">
+                        {brief.resource && (
+                          <span className="text-sm text-gray-500 mr-3">
+                            {brief.resource.name}
+                          </span>
+                        )}
+                        {brief.resource?.hourly_rate && brief.estimated_hours ? (
+                          <span className="text-sm font-medium text-emerald-600">
+                            ${(brief.resource.hourly_rate * brief.estimated_hours + (brief.expenses || 0)).toFixed(2)}
+                          </span>
+                        ) : brief.expenses ? (
+                          <span className="text-sm font-medium text-emerald-600">
+                            ${brief.expenses.toFixed(2)}
+                          </span>
+                        ) : null}
                       </div>
                     </div>
                     <div className="mt-2 sm:flex sm:justify-between">
@@ -277,6 +565,18 @@ export default function CampaignDetail() {
                         <p className="flex items-center text-sm text-gray-500">
                           {format(new Date(brief.start_date), 'MMM d')} - {format(new Date(brief.due_date), 'MMM d, yyyy')}
                         </p>
+                      </div>
+                      <div className="flex items-center mt-2 sm:mt-0">
+                        {brief.estimated_hours && (
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium">{brief.estimated_hours}</span> hrs
+                            {brief.resource?.hourly_rate && (
+                              <span className="ml-1">
+                                @ ${brief.resource.hourly_rate}/hr
+                              </span>
+                            )}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>

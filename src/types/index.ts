@@ -22,11 +22,25 @@ export interface User {
   avatar_url: string | null;
 }
 
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface Resource {
   id: string;
   name: string;
   type: ResourceType;
+  capacity_hours?: number; // Weekly capacity in hours (default 40)
+  hourly_rate?: number; // Optional hourly rate for cost calculation
+  media_type?: string; // Optional media type for categorization
+  team_id?: string; // Reference to team
+  team?: Team; // Optional team data
   created_at: string;
+  updated_at?: string;
 }
 
 export interface Brief {

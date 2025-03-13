@@ -49,6 +49,12 @@ const CreateBrief = () => {
   const [resourceConflict, setResourceConflict] = useState(false);
   const [tradeshowConflict, setTradeshowConflict] = useState(false);
   const [existingBrief, setExistingBrief] = useState<Brief | null>(null);
+  const [calculatedCost, setCalculatedCost] = useState<number | null>(null);
+  const [resourceAllocation, setResourceAllocation] = useState<{
+    percentAllocated: number;
+    totalAllocated: number;
+    capacity: number;
+  } | null>(null);
 
   const {
     register,
@@ -78,6 +84,8 @@ const CreateBrief = () => {
   const watchedResourceId = watch('resource_id');
   const watchedStartDate = watch('start_date');
   const watchedDueDate = watch('due_date');
+  const watchedEstimatedHours = watch('estimated_hours');
+  const watchedExpenses = watch('expenses');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,7 +93,7 @@ const CreateBrief = () => {
         // Fetch resources
         const { data: resourcesData, error: resourcesError } = await supabase
           .from('resources')
-          .select('*')
+          .select('id, name, type, created_at')
           .order('name');
         
         if (resourcesError) throw resourcesError;
@@ -93,7 +101,7 @@ const CreateBrief = () => {
         // Fetch approvers (users who are managers or admins)
         const { data: approversData, error: approversError } = await supabase
           .from('users')
-          .select('*')
+          .select('id, name, email, role, created_at, avatar_url')
           .in('role', ['manager', 'admin'])
           .order('name');
         
@@ -146,10 +154,19 @@ const CreateBrief = () => {
       }
 
       try {
+        // Get resource information to check capacity
+        const { data: resourceData, error: resourceError } = await supabase
+          .from('resources')
+          .select('id, capacity_hours, hourly_rate, type')
+          .eq('id', watchedResourceId)
+          .single();
+        
+        if (resourceError) throw resourceError;
+        
         // Check resource allocation for this period
         const { data: existingBriefs, error: briefsError } = await supabase
           .from('briefs')
-          .select('*')
+          .select('id, resource_id, start_date, due_date, estimated_hours')
           .eq('resource_id', watchedResourceId)
           .or(`start_date.lte.${watchedDueDate},due_date.gte.${watchedStartDate}`);
         
@@ -169,14 +186,41 @@ const CreateBrief = () => {
           0
         );
         
-        // If more than 40 hours per week are allocated, show warning
+        // Calculate capacity based on the resource's actual capacity setting
         const startDate = new Date(watchedStartDate);
         const dueDate = new Date(watchedDueDate);
         const days = (dueDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
         const weeks = Math.ceil(days / 7);
-        const weeklyThreshold = 40;
         
-        setResourceConflict(totalAllocatedHours > weeklyThreshold * weeks);
+        // Get resource's weekly capacity (default to 40 if not set)
+        const weeklyCapacity = resourceData?.capacity_hours || 40;
+        
+        // Calculate if the resource is overallocated
+        const isOverallocated = totalAllocatedHours > weeklyCapacity * weeks;
+        
+        // Calculate how much is being used already
+        const percentAllocated = Math.round((totalAllocatedHours / (weeklyCapacity * weeks)) * 100);
+        
+        // Set conflict state with additional information
+        setResourceConflict(isOverallocated);
+        
+        // Save allocation data for display
+        setResourceAllocation({
+          percentAllocated,
+          totalAllocated: totalAllocatedHours,
+          capacity: weeklyCapacity * weeks
+        });
+        
+        // Calculate cost if resource has an hourly rate
+        const hourlyRate = resourceData?.hourly_rate || 0;
+        if (hourlyRate > 0) {
+          // Get currently watched estimated_hours
+          const estimatedHours = watch('estimated_hours') || 0;
+          const cost = estimatedHours * hourlyRate;
+          setCalculatedCost(cost);
+        } else {
+          setCalculatedCost(null);
+        }
         
         // Check for tradeshow conflicts
         setTradeshowConflict(tradeshows.length > 0);
@@ -188,7 +232,7 @@ const CreateBrief = () => {
     if (watchedResourceId && watchedStartDate && watchedDueDate) {
       checkConflicts();
     }
-  }, [watchedResourceId, watchedStartDate, watchedDueDate]);
+  }, [watchedResourceId, watchedStartDate, watchedDueDate, watchedEstimatedHours, watchedExpenses]);
 
   const onSubmit = async (data: BriefFormData) => {
     if (!user) return;
@@ -381,10 +425,36 @@ const CreateBrief = () => {
                   ))}
                 </select>
                 
+                {resourceAllocation && (
+                  <div className="mt-2 bg-gray-50 p-2 rounded border border-gray-200 text-sm">
+                    <p>
+                      <span className="font-medium">Current Allocation:</span>{' '}
+                      <span className={resourceAllocation.percentAllocated > 90 ? 'text-red-600 font-bold' : 'text-gray-600'}>
+                        {resourceAllocation.percentAllocated}%
+                      </span>
+                    </p>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1 mb-2">
+                      <div 
+                        className={`h-2.5 rounded-full ${
+                          resourceAllocation.percentAllocated > 100 ? 'bg-red-600' : 
+                          resourceAllocation.percentAllocated > 90 ? 'bg-amber-500' : 'bg-green-600'
+                        }`}
+                        style={{ width: `${Math.min(resourceAllocation.percentAllocated, 100)}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      {resourceAllocation.totalAllocated} of {resourceAllocation.capacity} hours allocated
+                    </p>
+                  </div>
+                )}
+                
                 {resourceConflict && (
-                  <div className="mt-2 flex items-start gap-2 text-amber-600 text-sm">
+                  <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    <span>This resource may be overallocated during this time period.</span>
+                    <span>
+                      <strong>Warning:</strong> This resource is overallocated during this time period.
+                      Consider assigning to another resource or adjusting the timeline.
+                    </span>
                   </div>
                 )}
                 
@@ -455,15 +525,26 @@ const CreateBrief = () => {
                     />
                   )}
                 />
+                {/* Cost estimation section */}
+                {calculatedCost !== null && (
+                  <div className="mt-2 bg-gray-50 p-2 rounded border border-gray-200 text-sm">
+                    <p className="font-medium text-gray-700">
+                      Estimated Resource Cost: ${calculatedCost.toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Based on resource hourly rate and estimated hours
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
           
-          {/* Priority and Status */}
+          {/* Priority, Status, and Cost Summary */}
           <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Priority and Status</h3>
+            <h3 className="text-lg font-medium text-gray-900">Priority, Status, and Cost</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
                   Priority
@@ -497,6 +578,35 @@ const CreateBrief = () => {
                   <option value="complete">Complete</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Cost Summary
+                </label>
+                <div className="bg-blue-50 border border-blue-200 rounded p-3 h-full">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-sm">
+                      <span>Resource Cost:</span>
+                      <span>${calculatedCost !== null ? calculatedCost.toFixed(2) : '0.00'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between text-sm">
+                      <span>Additional Expenses:</span>
+                      <span>${watchedExpenses !== null ? (watchedExpenses || 0).toFixed(2) : '0.00'}</span>
+                    </div>
+                    
+                    <div className="border-t border-blue-200 my-1 pt-1 flex justify-between font-medium">
+                      <span>Total Estimated Cost:</span>
+                      <span>
+                        ${(
+                          (calculatedCost || 0) +
+                          (watchedExpenses || 0)
+                        ).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

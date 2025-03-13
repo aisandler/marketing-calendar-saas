@@ -13,7 +13,8 @@ import {
   X, 
   Bell,
   ChevronDown,
-  Folders
+  Folders,
+  PieChart
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -39,6 +40,7 @@ const DashboardLayout: React.FC = () => {
     { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Briefs', href: '/briefs', icon: FileText },
     { name: 'Resources', href: '/resources', icon: Users },
+    { name: 'Resource Dashboard', href: '/resource-dashboard', icon: PieChart },
     { name: 'Tradeshows', href: '/tradeshows', icon: MapPin },
   ];
 

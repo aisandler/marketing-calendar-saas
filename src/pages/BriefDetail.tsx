@@ -55,35 +55,64 @@ const BriefDetail = () => {
         
         setBrief(briefData as Brief);
         
-        // Resources are no longer in the schema
-        setResource(null);
+        // Fetch resource if resource_id is present
+        if (briefData.resource_id) {
+          const { data: resourceData, error: resourceError } = await supabase
+            .from('resources')
+            .select('id, name, type, created_at')
+            .eq('id', briefData.resource_id)
+            .single();
+          
+          if (resourceError) {
+            console.warn('Failed to fetch resource details:', resourceError);
+          } else {
+            setResource(resourceData as Resource);
+          }
+        } else {
+          setResource(null);
+        }
         
         if (briefData.approver_id) {
-          const { data: approverData } = await supabase
+          const { data: approverData, error: approverError } = await supabase
             .from('users')
-            .select('*')
+            .select('id, name, email, role, created_at, avatar_url')
             .eq('id', briefData.approver_id)
             .single();
           
-          setApprover(approverData as User);
+          if (approverError) {
+            console.warn('Failed to fetch approver details:', approverError);
+          } else {
+            setApprover(approverData as User);
+          }
         }
         
-        const { data: creatorData } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', briefData.created_by)
-          .single();
+        if (briefData.created_by) {
+          const { data: creatorData, error: creatorError } = await supabase
+            .from('users')
+            .select('id, name, email, role, created_at, avatar_url')
+            .eq('id', briefData.created_by)
+            .single();
+          
+          if (creatorError) {
+            console.warn('Failed to fetch creator details:', creatorError);
+          } else {
+            setCreator(creatorData as User);
+          }
+        }
         
-        setCreator(creatorData as User);
-        
-        // Fetch history
-        const { data: historyData } = await supabase
+        // Fetch history with explicit field selection
+        const { data: historyData, error: historyError } = await supabase
           .from('history')
-          .select('*')
+          .select('id, brief_id, changed_by, previous_state, new_state, created_at')
           .eq('brief_id', id)
           .order('created_at', { ascending: false });
-        
-        setHistory(historyData as History[] || []);
+          
+        if (historyError) {
+          console.warn('Failed to fetch history:', historyError);
+          setHistory([]);
+        } else {
+          setHistory(historyData as History[] || []);
+        }
       } catch (error: any) {
         console.error('Error fetching brief data:', error);
         setError(error.message || 'Failed to load brief details.');
@@ -388,7 +417,7 @@ const BriefDetail = () => {
               <div>
                 <dt className="text-sm font-medium text-gray-500">Expenses</dt>
                 <dd className="text-sm text-gray-900 mt-1">
-                  {brief.expenses ? `$${brief.expenses.toFixed(2)}` : 'Not specified'}
+                  {typeof brief.expenses === 'number' ? `$${brief.expenses.toFixed(2)}` : 'Not specified'}
                 </dd>
               </div>
               
@@ -417,11 +446,54 @@ const BriefDetail = () => {
           
           {/* Resource */}
           <div className="bg-white shadow rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Resource</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Resource & Cost</h3>
             {resource ? (
               <div>
-                <p className="text-gray-900 font-medium">{resource.name}</p>
-                <p className="text-gray-600 mt-1 capitalize">{resource.type}</p>
+                <div className="flex justify-between">
+                  <div>
+                    <p className="text-gray-900 font-medium">{resource.name}</p>
+                    <p className="text-gray-600 mt-1 capitalize">
+                      {resource.type}
+                      {resource.media_type ? ` • ${resource.media_type}` : ''}
+                    </p>
+                  </div>
+                  <div className="bg-gray-100 px-3 py-1 rounded-md flex flex-col items-center">
+                    <span className="text-xs text-gray-500">Weekly Capacity</span>
+                    <span className="font-medium">{resource.capacity_hours || 40} hrs</span>
+                  </div>
+                </div>
+                
+                {/* Cost information */}
+                {resource.hourly_rate && brief.estimated_hours && (
+                  <div className="mt-4 border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Cost Breakdown</h4>
+                    
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span>Resource Rate:</span>
+                        <span>${resource.hourly_rate.toFixed(2)}/hr</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span>Resource Cost ({brief.estimated_hours} hrs):</span>
+                        <span>${(resource.hourly_rate * brief.estimated_hours).toFixed(2)}</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm">
+                        <span>Additional Expenses:</span>
+                        <span>${typeof brief.expenses === 'number' ? brief.expenses.toFixed(2) : '0.00'}</span>
+                      </div>
+                      
+                      <div className="flex justify-between text-sm font-medium border-t border-gray-200 pt-1 mt-1">
+                        <span>Total Estimated Cost:</span>
+                        <span>${(
+                          resource.hourly_rate * (brief.estimated_hours || 0) + 
+                          (typeof brief.expenses === 'number' ? brief.expenses : 0)
+                        ).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-gray-600">No resource assigned</p>

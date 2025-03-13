@@ -10,6 +10,7 @@ import BriefsList from './pages/BriefsList';
 import BriefDetail from './pages/BriefDetail';
 import CreateBrief from './pages/CreateBrief';
 import ResourceManagement from './pages/ResourceManagement';
+import ResourceDashboard from './pages/ResourceDashboard';
 import TradeshowsList from './pages/TradeshowsList';
 import UserManagement from './pages/UserManagement';
 import NotFound from './pages/NotFound';
@@ -46,6 +47,7 @@ function App() {
             <Route path="/briefs/create" element={<CreateBrief />} />
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
             <Route path="/resources" element={<ResourceManagement />} />
+            <Route path="/resource-dashboard" element={<ResourceDashboard />} />
             <Route path="/tradeshows" element={<TradeshowsList />} />
             <Route path="/users" element={
               <ProtectedRoute allowedRoles={['admin']}>

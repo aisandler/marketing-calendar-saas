@@ -3,8 +3,11 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Plus, Edit, Trash, Users, Download } from 'lucide-react';
-import type { Resource, Brief } from '../types';
+import { Plus, Edit, Trash, Download, BarChart3, Users, Briefcase } from 'lucide-react';
+import type { Resource, Brief, Team } from '../types';
+import MediaTypeUtilization from '../components/MediaTypeUtilization';
+import TeamManagement from '../components/teams/TeamManagement';
+import TeamUtilization from '../components/teams/TeamUtilization';
 
 const ResourceManagement = () => {
   const { user } = useAuth();
@@ -16,45 +19,62 @@ const ResourceManagement = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [currentResource, setCurrentResource] = useState<Resource | null>(null);
+  const [activeTab, setActiveTab] = useState<'resources' | 'media-types' | 'teams' | 'team-utilization'>('resources');
+  const [teams, setTeams] = useState<Team[]>([]);
   const [formData, setFormData] = useState({
     name: '',
-    type: 'internal' as Resource['type']
+    type: 'internal' as Resource['type'],
+    capacity_hours: 40, // Default 40 hours per week
+    hourly_rate: 0, // Optional hourly rate
+    media_type: '', // Optional media type
+    team_id: '' // Optional team assignment
   });
 
   // Check if user has permission
   const canManageResources = user?.role === 'admin' || user?.role === 'manager';
 
   useEffect(() => {
-    const fetchResources = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         
-        // Fetch resources
+        // Fetch resources with explicit field selection including capacity and team_id
         const { data: resourcesData, error: resourcesError } = await supabase
           .from('resources')
-          .select('*')
+          .select('id, name, type, capacity_hours, hourly_rate, media_type, team_id, created_at, updated_at')
           .order('name');
         
         if (resourcesError) throw resourcesError;
         
-        // Fetch briefs for resource utilization
+        // Fetch teams
+        const { data: teamsData, error: teamsError } = await supabase
+          .from('teams')
+          .select('*')
+          .order('name');
+        
+        if (teamsError) throw teamsError;
+        
+        // Fetch briefs for resource utilization with explicit field selection
+        // Include estimated_hours for capacity planning and resource_id for allocation
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('*');
+          .select('id, title, status, start_date, due_date, resource_id, estimated_hours')
+          .order('due_date');
           
         if (briefsError) throw briefsError;
         
         setResources(resourcesData as Resource[]);
+        setTeams(teamsData as Team[]);
         setBriefs(briefsData as Brief[]);
       } catch (error: any) {
-        console.error('Error fetching resources:', error);
-        setError(error.message || 'Failed to load resources.');
+        console.error('Error fetching data:', error);
+        setError(error.message || 'Failed to load resources and teams.');
       } finally {
         setLoading(false);
       }
     };
     
-    fetchResources();
+    fetchData();
   }, []);
 
   const handleAddResource = async (e: React.FormEvent) => {
@@ -71,7 +91,12 @@ const ResourceManagement = () => {
           {
             name: formData.name,
             type: formData.type,
-            created_at: new Date().toISOString()
+            capacity_hours: formData.capacity_hours,
+            hourly_rate: formData.hourly_rate > 0 ? formData.hourly_rate : null,
+            media_type: formData.media_type || null,
+            team_id: formData.team_id || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           }
         ])
         .select();
@@ -82,7 +107,14 @@ const ResourceManagement = () => {
       setResources([...resources, data[0] as Resource]);
       
       // Reset form and close modal
-      setFormData({ name: '', type: 'internal' });
+      setFormData({ 
+        name: '', 
+        type: 'internal',
+        capacity_hours: 40,
+        hourly_rate: 0,
+        media_type: '',
+        team_id: ''
+      });
       setIsAddModalOpen(false);
     } catch (error: any) {
       console.error('Error adding resource:', error);
@@ -104,7 +136,12 @@ const ResourceManagement = () => {
         .from('resources')
         .update({
           name: formData.name,
-          type: formData.type
+          type: formData.type,
+          capacity_hours: formData.capacity_hours,
+          hourly_rate: formData.hourly_rate > 0 ? formData.hourly_rate : null,
+          media_type: formData.media_type || null,
+          team_id: formData.team_id || null,
+          updated_at: new Date().toISOString()
         })
         .eq('id', currentResource.id)
         .select();
@@ -117,7 +154,14 @@ const ResourceManagement = () => {
       ));
       
       // Reset form and close modal
-      setFormData({ name: '', type: 'internal' });
+      setFormData({ 
+        name: '', 
+        type: 'internal',
+        capacity_hours: 40,
+        hourly_rate: 0,
+        media_type: '',
+        team_id: ''
+      });
       setCurrentResource(null);
       setIsEditModalOpen(false);
     } catch (error: any) {
@@ -162,7 +206,11 @@ const ResourceManagement = () => {
     setCurrentResource(resource);
     setFormData({
       name: resource.name,
-      type: resource.type
+      type: resource.type,
+      capacity_hours: resource.capacity_hours || 40,
+      hourly_rate: resource.hourly_rate || 0,
+      media_type: resource.media_type || '',
+      team_id: resource.team_id || ''
     });
     setIsEditModalOpen(true);
   };
@@ -172,23 +220,51 @@ const ResourceManagement = () => {
     setIsDeleteModalOpen(true);
   };
 
+  // Get total hours allocated to a resource
   const getResourceUtilization = (resourceId: string) => {
-    // Resource relationship to briefs no longer exists in schema
-    return 0;
+    const resourceBriefs = briefs.filter(brief => brief.resource_id === resourceId);
+    return resourceBriefs.length;
+  };
+  
+  // Calculate total hours allocated to a resource
+  const getTotalHoursAllocated = (resourceId: string) => {
+    const resourceBriefs = briefs.filter(brief => brief.resource_id === resourceId);
+    return resourceBriefs.reduce((total, brief) => total + (brief.estimated_hours || 0), 0);
+  };
+  
+  // Check if a resource is overallocated based on capacity
+  const isResourceOverallocated = (resourceId: string) => {
+    const resource = resources.find(r => r.id === resourceId);
+    if (!resource) return false;
+    
+    const capacity = resource.capacity_hours || 40;
+    const totalHours = getTotalHoursAllocated(resourceId);
+    
+    return totalHours > capacity;
   };
 
   const exportToCsv = () => {
     const headers = [
       'Name',
       'Type',
+      'Media Type',
+      'Capacity (hours/week)',
+      'Hourly Rate',
       'Active Briefs',
+      'Hours Allocated',
+      'Status',
       'Created At'
     ].join(',');
     
     const rows = resources.map(resource => [
       `"${resource.name.replace(/"/g, '""')}"`,
       resource.type,
+      resource.media_type || '',
+      resource.capacity_hours || 40,
+      resource.hourly_rate || 0,
       getResourceUtilization(resource.id),
+      getTotalHoursAllocated(resource.id),
+      isResourceOverallocated(resource.id) ? 'Overallocated' : 'Available',
       resource.created_at
     ].join(','));
     
@@ -243,6 +319,56 @@ const ResourceManagement = () => {
             </Button>
           </div>
         </div>
+        
+        {/* Tabs Navigation */}
+        <div className="mt-6 border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('resources')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'resources'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Users className="inline-block h-5 w-5 mr-2" />
+              Resources List
+            </button>
+            <button
+              onClick={() => setActiveTab('teams')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'teams'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Briefcase className="inline-block h-5 w-5 mr-2" />
+              Teams
+            </button>
+            <button
+              onClick={() => setActiveTab('media-types')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'media-types'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <BarChart3 className="inline-block h-5 w-5 mr-2" />
+              Media Type Utilization
+            </button>
+            <button
+              onClick={() => setActiveTab('team-utilization')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'team-utilization'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <BarChart3 className="inline-block h-5 w-5 mr-2" />
+              Team Utilization
+            </button>
+          </nav>
+        </div>
       </div>
       
       {error && (
@@ -251,76 +377,122 @@ const ResourceManagement = () => {
         </div>
       )}
       
-      {/* Resources Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Type
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Active Briefs
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Created At
-              </th>
-              {canManageResources && (
-                <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              )}
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {resources.length > 0 ? (
-              resources.map((resource) => (
-                <tr key={resource.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{resource.name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 capitalize">
-                      {resource.type}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getResourceUtilization(resource.id)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(resource.created_at).toLocaleDateString()}
-                  </td>
-                  {canManageResources && (
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <button
-                        className="text-blue-600 hover:text-blue-900 mr-3"
-                        onClick={() => openEditModal(resource)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </button>
-                      <button
-                        className="text-red-600 hover:text-red-900"
-                        onClick={() => openDeleteModal(resource)}
-                      >
-                        <Trash className="h-4 w-4" />
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))
-            ) : (
+      {/* Tab Content */}
+      {activeTab === 'resources' && (
+        /* Resources Table */
+        <div className="bg-white shadow rounded-lg overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <td colSpan={canManageResources ? 5 : 4} className="px-6 py-4 text-center text-sm text-gray-500">
-                  No resources found.
-                </td>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Name
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Team
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Media Type
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Capacity
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Hours Allocated
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                {canManageResources && (
+                  <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                )}
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {resources.length > 0 ? (
+                resources.map((resource) => {
+                  // Find team name
+                  const team = teams.find(t => t.id === resource.team_id);
+                  
+                  return (
+                    <tr key={resource.id} className={`hover:bg-gray-50 ${isResourceOverallocated(resource.id) ? 'bg-red-50' : ''}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{resource.name}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 capitalize">
+                          {resource.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {team ? team.name : 'Unassigned'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {resource.media_type || 'Not specified'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {resource.capacity_hours || 40} hours/week
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {getTotalHoursAllocated(resource.id)} hours
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {isResourceOverallocated(resource.id) ? (
+                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">
+                            Overallocated
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">
+                            Available
+                          </span>
+                        )}
+                      </td>
+                      {canManageResources && (
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <button
+                            className="text-blue-600 hover:text-blue-900 mr-3"
+                            onClick={() => openEditModal(resource)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            className="text-red-600 hover:text-red-900"
+                            onClick={() => openDeleteModal(resource)}
+                          >
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan={canManageResources ? 8 : 7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    No resources found.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      
+      {activeTab === 'teams' && (
+        <TeamManagement />
+      )}
+      
+      {activeTab === 'media-types' && (
+        <MediaTypeUtilization />
+      )}
+      
+      {activeTab === 'team-utilization' && (
+        <TeamUtilization />
+      )}
       
       {/* Add Resource Modal */}
       {isAddModalOpen && (
@@ -357,6 +529,68 @@ const ResourceManagement = () => {
                     <option value="agency">Agency</option>
                     <option value="freelancer">Freelancer</option>
                   </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="media-type" className="block text-sm font-medium text-gray-700 mb-1">
+                    Media Type
+                  </label>
+                  <Input
+                    id="media-type"
+                    value={formData.media_type}
+                    onChange={(e) => setFormData({ ...formData, media_type: e.target.value })}
+                    placeholder="e.g., Photography, Graphic Design, Social Media"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="team" className="block text-sm font-medium text-gray-700 mb-1">
+                    Team
+                  </label>
+                  <select
+                    id="team"
+                    value={formData.team_id}
+                    onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">No Team</option>
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="capacity-hours" className="block text-sm font-medium text-gray-700 mb-1">
+                    Capacity (Hours/Week)
+                  </label>
+                  <Input
+                    id="capacity-hours"
+                    type="number"
+                    value={formData.capacity_hours}
+                    onChange={(e) => setFormData({ ...formData, capacity_hours: parseInt(e.target.value) || 40 })}
+                    min="1"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="hourly-rate" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hourly Rate (optional)
+                  </label>
+                  <Input
+                    id="hourly-rate"
+                    type="number"
+                    value={formData.hourly_rate}
+                    onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave at 0 for internal resources with no direct cost
+                  </p>
                 </div>
               </div>
               
@@ -415,6 +649,68 @@ const ResourceManagement = () => {
                     <option value="agency">Agency</option>
                     <option value="freelancer">Freelancer</option>
                   </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-media-type" className="block text-sm font-medium text-gray-700 mb-1">
+                    Media Type
+                  </label>
+                  <Input
+                    id="edit-media-type"
+                    value={formData.media_type}
+                    onChange={(e) => setFormData({ ...formData, media_type: e.target.value })}
+                    placeholder="e.g., Photography, Graphic Design, Social Media"
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-team" className="block text-sm font-medium text-gray-700 mb-1">
+                    Team
+                  </label>
+                  <select
+                    id="edit-team"
+                    value={formData.team_id}
+                    onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">No Team</option>
+                    {teams.map((team) => (
+                      <option key={team.id} value={team.id}>
+                        {team.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-capacity-hours" className="block text-sm font-medium text-gray-700 mb-1">
+                    Capacity (Hours/Week)
+                  </label>
+                  <Input
+                    id="edit-capacity-hours"
+                    type="number"
+                    value={formData.capacity_hours}
+                    onChange={(e) => setFormData({ ...formData, capacity_hours: parseInt(e.target.value) || 40 })}
+                    min="1"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="edit-hourly-rate" className="block text-sm font-medium text-gray-700 mb-1">
+                    Hourly Rate (optional)
+                  </label>
+                  <Input
+                    id="edit-hourly-rate"
+                    type="number"
+                    value={formData.hourly_rate}
+                    onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) || 0 })}
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Leave at 0 for internal resources with no direct cost
+                  </p>
                 </div>
               </div>
               

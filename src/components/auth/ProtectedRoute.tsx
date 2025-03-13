@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { UserRole } from '../../types';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
-  allowedRoles?: string[];
+  allowedRoles?: UserRole[];
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ 
@@ -21,11 +22,28 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Check for session in localStorage as fallback
   const sessionFallback = () => {
     try {
-      // Check if we have a supabase session in localStorage
+      // Check if we have a session in localStorage
       const storageKey = 'marketing-cal-auth';
-      const hasLocalSession = localStorage.getItem(storageKey) !== null;
-      return hasLocalSession;
+      const session = localStorage.getItem(storageKey);
+      
+      if (!session) return false;
+      
+      // Verify session is not expired (24 hours max)
+      try {
+        const { timestamp } = JSON.parse(session);
+        // Only use local storage if it's less than 24 hours old
+        if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+          return true;
+        }
+        // Clear expired session
+        localStorage.removeItem(storageKey);
+        return false;
+      } catch (parseError) {
+        console.error('Error parsing session:', parseError);
+        return false;
+      }
     } catch (e) {
+      console.error('Error checking local session:', e);
       return false;
     }
   };

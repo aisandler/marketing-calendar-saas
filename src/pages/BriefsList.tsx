@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { CalendarDays, Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Brief, Resource, User } from '../types';
 
 const BriefsList = () => {
@@ -13,46 +13,95 @@ const BriefsList = () => {
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [resourceFilter, setResourceFilter] = useState<string | null>(null);
+  const [mediaTypeFilter, setMediaTypeFilter] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [mediaTypes, setMediaTypes] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Fetch briefs
+        // Fetch briefs with explicit field selection
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
           .select('id, title, status, start_date, due_date, channel, resource_id, created_by')
           .order('due_date', { ascending: true });
         
-        if (briefsError) throw briefsError;
+        if (briefsError) {
+          console.error('Error fetching briefs:', briefsError);
+          setError(`Failed to load briefs: ${briefsError.message}`);
+          return;
+        }
         
-        // Resources are no longer in the schema
-        const resourcesData = [];
+        // Fetch resources for resource filtering and display
+        const { data: resourcesData, error: resourcesError } = await supabase
+          .from('resources')
+          .select('id, name, type, media_type, created_at')
+          .order('name');
         
-        // Fetch users
+        if (resourcesError) {
+          console.error('Error fetching resources:', resourcesError);
+          setError(`Failed to load resources: ${resourcesError.message}`);
+          return;
+        }
+        
+        // Extract unique media types
+        const uniqueMediaTypes = Array.from(
+          new Set(
+            resourcesData
+              .filter(resource => resource.media_type)
+              .map(resource => resource.media_type)
+          )
+        ).sort() as string[];
+        
+        // Fetch users with explicit field selection
         const { data: usersData, error: usersError } = await supabase
           .from('users')
-          .select('*');
+          .select('id, name, email, role, created_at, avatar_url');
         
-        if (usersError) throw usersError;
+        if (usersError) {
+          console.error('Error fetching users:', usersError);
+          setError(`Failed to load users: ${usersError.message}`);
+          return;
+        }
         
-        // Set state
+        if (!briefsData) {
+          setError('No brief data returned from the server');
+          return;
+        }
+        
+        if (!usersData) {
+          setError('No user data returned from the server');
+          return;
+        }
+        
+        // Set state with type safety
         setBriefs(briefsData.map(brief => ({
           ...brief,
           priority: undefined, // Priority no longer in schema
           // Add other missing fields to match Brief type
-          resource: null
+          resource: null,
+          description: brief.description || undefined,
+          specifications: brief.specifications || undefined,
+          estimated_hours: brief.estimated_hours || undefined,
+          expenses: brief.expenses || undefined,
+          approver_id: brief.approver_id || undefined,
+          updated_at: brief.updated_at || undefined
         })) as Brief[]);
-        setResources(resourcesData as Resource[]);
+        
+        setResources(resourcesData);
         setUsers(usersData as User[]);
-      } catch (error) {
+        setMediaTypes(uniqueMediaTypes);
+      } catch (error: any) {
         console.error('Error fetching briefs data:', error);
+        setError(error?.message || 'An unexpected error occurred while loading data');
       } finally {
         setLoading(false);
       }
@@ -62,8 +111,9 @@ const BriefsList = () => {
   }, []);
 
   const getResourceName = (resourceId: string | null) => {
-    // Resource feature has been removed from schema
-    return 'N/A';
+    if (!resourceId) return 'Unassigned';
+    const resource = resources.find(r => r.id === resourceId);
+    return resource ? resource.name : 'Unknown';
   };
 
   const getUserName = (userId: string) => {
@@ -80,6 +130,7 @@ const BriefsList = () => {
       'Status',
       // Priority removed as field no longer exists
       'Resource',
+      'Media Type',
       'Created By'
     ].join(',');
     
@@ -91,6 +142,7 @@ const BriefsList = () => {
       brief.status.replace('_', ' '),
       // Priority removed as field no longer exists
       getResourceName(brief.resource_id),
+      getResourceMediaType(brief.resource_id) || 'Not specified',
       getUserName(brief.created_by)
     ].join(','));
     
@@ -112,6 +164,14 @@ const BriefsList = () => {
     setStatusFilter(null);
     setPriorityFilter(null);
     setResourceFilter(null);
+    setMediaTypeFilter(null);
+  };
+  
+  // Get the media type of a resource
+  const getResourceMediaType = (resourceId: string | null) => {
+    if (!resourceId) return null;
+    const resource = resources.find(r => r.id === resourceId);
+    return resource ? resource.media_type : null;
   };
 
   const filteredBriefs = briefs.filter(brief => {
@@ -130,9 +190,25 @@ const BriefsList = () => {
       return false; // If priority filter is set, no results will match (since priority field doesn't exist)
     }
     
-    // Resource filter is no longer applicable since resource_id was removed from schema
+    // Apply resource filter
     if (resourceFilter) {
-      return false; // If resource filter is set, no results will match
+      if (resourceFilter === 'null') {
+        // Special case for unassigned resources
+        if (brief.resource_id) return false;
+      } else if (brief.resource_id !== resourceFilter) {
+        return false;
+      }
+    }
+    
+    // Apply media type filter
+    if (mediaTypeFilter) {
+      const resourceMediaType = getResourceMediaType(brief.resource_id);
+      if (mediaTypeFilter === 'null') {
+        // Special case for resources without media type
+        if (resourceMediaType) return false;
+      } else if (resourceMediaType !== mediaTypeFilter) {
+        return false;
+      }
     }
     
     return true;
@@ -142,6 +218,23 @@ const BriefsList = () => {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative max-w-2xl w-full mb-4">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+        <Button 
+          onClick={() => window.location.reload()}
+          className="mt-4"
+        >
+          Retry
+        </Button>
       </div>
     );
   }
@@ -175,13 +268,7 @@ const BriefsList = () => {
               <span className="ml-2">Filter</span>
             </Button>
 
-            {/* Calendar view */}
-            <Link to="/calendar">
-              <Button variant="outline" className="px-3 py-2">
-                <CalendarDays className="h-5 w-5" />
-                <span className="ml-2">Calendar</span>
-              </Button>
-            </Link>
+            {/* Calendar view temporarily removed */}
 
             {/* Export */}
             <Button 
@@ -243,10 +330,31 @@ const BriefsList = () => {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="">All Resources</option>
-                  <option value={null}>Unassigned</option>
+                  <option value="null">Unassigned</option>
                   {resources.map((resource) => (
                     <option key={resource.id} value={resource.id}>
                       {resource.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Media Type filter */}
+              <div>
+                <label htmlFor="media-type-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                  Media Type
+                </label>
+                <select
+                  id="media-type-filter"
+                  value={mediaTypeFilter || ''}
+                  onChange={(e) => setMediaTypeFilter(e.target.value || null)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                >
+                  <option value="">All Media Types</option>
+                  <option value="null">Unspecified</option>
+                  {mediaTypes.map((mediaType) => (
+                    <option key={mediaType} value={mediaType}>
+                      {mediaType}
                     </option>
                   ))}
                 </select>
@@ -289,6 +397,9 @@ const BriefsList = () => {
                 Resource
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Media Type
+              </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created By
               </th>
             </tr>
@@ -317,14 +428,17 @@ const BriefsList = () => {
                     {getResourceName(brief.resource_id)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {getResourceMediaType(brief.resource_id) || 'Not specified'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {getUserName(brief.created_by)}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-6 py-4 text-center text-sm text-gray-500">
-                  No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter ? (
+                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                  No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
                     <button 
                       onClick={resetFilters}
                       className="text-blue-600 hover:text-blue-800"
