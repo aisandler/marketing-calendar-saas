@@ -8,17 +8,8 @@ import { startOfWeek, endOfWeek, format } from 'date-fns';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-
-interface Brief {
-  id: string;
-  title: string;
-  due_date: string;
-  status: string;
-  channel?: string;
-  resource_id?: string;
-  brand?: { name: string };
-  resource?: { name: string };
-}
+import { Brief, Resource } from '../types';
+import { DashboardCharts } from '../components/DashboardCharts';
 
 interface Campaign {
   id: string;
@@ -29,12 +20,6 @@ interface Campaign {
   brand?: { name: string };
 }
 
-interface Resource {
-  id: string;
-  name: string;
-  max_capacity: number;
-}
-
 interface DashboardStats {
   totalBriefs: number;
   briefsByStatus: { [key: string]: number };
@@ -42,6 +27,7 @@ interface DashboardStats {
     name: string;
     assigned: number;
     capacity: number;
+    utilization: number;
   }>;
   upcomingDeadlines: Array<Brief>;
   briefsByMediaType: Array<{
@@ -64,6 +50,8 @@ const Dashboard = () => {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [briefs, setBriefs] = useState<Brief[]>([]);
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {
@@ -80,20 +68,21 @@ const Dashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        
-        // Fetch briefs with related data
-        const { data: briefs, error: briefsError } = await supabase
+        setError(null);
+
+        // Fetch resources with capacity information
+        const { data: resourcesData, error: resourcesError } = await supabase
+          .from('resources')
+          .select('*')
+          .order('name');
+
+        if (resourcesError) throw resourcesError;
+
+        // Fetch briefs with resource assignments
+        const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select(`
-            id,
-            title,
-            due_date,
-            status,
-            channel,
-            resource_id,
-            brand:brands(name),
-            resource:resources(name)
-          `) as { data: Brief[] | null; error: any };
+          .select('*')
+          .order('due_date');
 
         if (briefsError) throw briefsError;
 
@@ -111,19 +100,12 @@ const Dashboard = () => {
 
         if (campaignsError) throw campaignsError;
 
-        // Fetch resources with their capacities
-        const { data: resources, error: resourcesError } = await supabase
-          .from('resources')
-          .select('*') as { data: Resource[] | null; error: any };
-
-        if (resourcesError) throw resourcesError;
-
         // Calculate statistics
         const statusCounts: { [key: string]: number } = {};
         const mediaTypeCounts: { [key: string]: number } = {};
         let pendingCount = 0;
         
-        briefs?.forEach(brief => {
+        briefsData?.forEach(brief => {
           // Count by status
           statusCounts[brief.status] = (statusCounts[brief.status] || 0) + 1;
           if (brief.status === 'pending_approval') {
@@ -136,39 +118,46 @@ const Dashboard = () => {
         });
 
         // Calculate resource capacity
-        const resourceCapacity = (resources || []).map(resource => {
-          const assignedBriefs = briefs?.filter(b => b.resource_id === resource.id) || [];
+        const resourceCapacity = (resourcesData || []).map(resource => {
+          const assignedBriefs = briefsData?.filter(b => b.resource_id === resource.id && b.status !== 'cancelled') || [];
+          const maxCapacity = resource.max_capacity || 5; // Default capacity if not set
           return {
             name: resource.name,
             assigned: assignedBriefs.length,
-            capacity: resource.max_capacity || 5 // Default capacity if not set
+            capacity: maxCapacity,
+            utilization: (assignedBriefs.length / maxCapacity) * 100
           };
-        });
+        }).sort((a, b) => b.utilization - a.utilization); // Sort by utilization
 
         // Get upcoming deadlines (next 30 days for better calendar view)
         const now = new Date();
         const nextMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-        const upcomingDeadlines = briefs?.filter(brief => {
+        const upcomingDeadlines = briefsData?.filter(brief => {
           const dueDate = new Date(brief.due_date);
           return dueDate >= now && dueDate <= nextMonth;
         }) || [];
 
-        // Format media type data for chart
-        const briefsByMediaType = Object.entries(mediaTypeCounts).map(([mediaType, count]) => ({
-          mediaType,
-          count
-        }));
+        // Format media type data for chart with better grouping
+        const briefsByMediaType = Object.entries(mediaTypeCounts)
+          .map(([mediaType, count]) => ({
+            mediaType: mediaType === 'Unspecified' ? 'Other' : mediaType,
+            count
+          }))
+          .sort((a, b) => b.count - a.count); // Sort by count descending
 
         setStats({
-          totalBriefs: briefs?.length || 0,
+          ...stats,
+          totalBriefs: briefsData?.length || 0,
           briefsByStatus: statusCounts,
-          resourceCapacity,
+          resourceCapacity: resourceCapacity,
           upcomingDeadlines,
           briefsByMediaType,
           pendingApprovals: pendingCount,
           campaigns: campaigns || []
         });
 
+        setResources(resourcesData);
+        setBriefs(briefsData);
       } catch (error: any) {
         console.error('Error fetching dashboard data:', error);
         setError(error.message);
@@ -378,47 +367,8 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        {/* Resource Capacity Chart */}
-        <Card 
-          className="transform transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl"
-          decoration="left"
-          decorationColor="blue"
-        >
-          <Title className="text-lg font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-            Resource Capacity
-          </Title>
-          <BarChart
-            className="mt-4 h-72"
-            data={stats.resourceCapacity}
-            index="name"
-            categories={["assigned", "capacity"]}
-            colors={["blue", "indigo"]}
-            valueFormatter={(value: number) => `${value} briefs`}
-            showLegend={true}
-            showGridLines={false}
-            startEndOnly={true}
-          />
-        </Card>
-
-        {/* Briefs by Media Type */}
-        <Card 
-          className="transform transition-all hover:scale-[1.02] shadow-lg hover:shadow-xl"
-          decoration="left"
-          decorationColor="purple"
-        >
-          <Title className="text-lg font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-pink-600">
-            Briefs by Media Type
-          </Title>
-          <DonutChart
-            className="mt-4 h-72"
-            data={stats.briefsByMediaType}
-            category="count"
-            index="mediaType"
-            colors={["indigo", "violet", "purple", "fuchsia", "pink", "blue", "cyan"]}
-            valueFormatter={(value: number) => `${value} briefs`}
-            showLabel={true}
-          />
-        </Card>
+        {/* Resource Capacity and Media Type Charts */}
+        <DashboardCharts resources={resources} briefs={briefs} />
       </div>
 
       {/* Enhanced Upcoming Deadlines */}
