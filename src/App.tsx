@@ -22,6 +22,7 @@ import CreateCampaign from './pages/CreateCampaign';
 import BrandsDiagnosticsSimple from './pages/BrandsDiagnosticsSimple';
 import MinimalBrandsTest from './pages/MinimalBrandsTest';
 import SimpleBrands from './pages/SimpleBrands';
+import ResetPassword from './pages/auth/ResetPassword';
 
 function App() {
   return (
@@ -32,6 +33,7 @@ function App() {
           <Route element={<AuthLayout />}>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
           </Route>
 
           {/* Protected Routes with Dashboard Layout */}

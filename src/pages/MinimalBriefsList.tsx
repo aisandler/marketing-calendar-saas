@@ -6,55 +6,43 @@ const MinimalBriefsList = () => {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [columnNames, setColumnNames] = useState<string[]>([]);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   useEffect(() => {
     const fetchBriefs = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // First check what columns are available
-        const { data: columnsData, error: columnsError } = await supabase.rpc(
-          'debug_briefs_columns'
+        // Get debug information first
+        const { data: debugData, error: debugError } = await supabase.rpc(
+          'debug_briefs_data'
         );
         
-        if (columnsError) {
-          // If the RPC doesn't exist, just continue
-          console.log('RPC not available:', columnsError);
+        if (debugError) {
+          console.error('Debug function error:', debugError);
+          setDebugInfo({
+            error: debugError.message,
+            hint: 'Debug function not accessible'
+          });
         } else {
-          setColumnNames(columnsData || []);
+          setDebugInfo(debugData);
+          if (debugData.columns) {
+            setColumnNames(debugData.columns.map((col: any) => col.name));
+          }
         }
 
-        // Try with *
-        console.log('Trying with * selector');
-        const { data: allData, error: allError } = await supabase
+        // Fetch briefs data
+        const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('*')
-          .limit(5);
+          .select('*');
           
-        if (allError) {
-          console.error('Error with * selector:', allError);
-          
-          // Try with fewer columns
-          console.log('Trying with minimal columns');
-          const { data: minimalData, error: minimalError } = await supabase
-            .from('briefs')
-            .select('id, title')
-            .limit(5);
-            
-          if (minimalError) {
-            console.error('Error with minimal selector:', minimalError);
-            setError(`Failed to fetch briefs: ${minimalError.message}`);
-          } else {
-            setBriefs(minimalData || []);
-            if (minimalData && minimalData.length > 0) {
-              setColumnNames(Object.keys(minimalData[0]));
-            }
-          }
+        if (briefsError) {
+          console.error('Error fetching briefs:', briefsError);
+          setError(`Failed to fetch briefs: ${briefsError.message}`);
+          setBriefs([]);
         } else {
-          setBriefs(allData || []);
-          if (allData && allData.length > 0) {
-            setColumnNames(Object.keys(allData[0]));
-          }
+          setBriefs(briefsData || []);
         }
       } catch (err: any) {
         console.error('Unexpected error:', err);
@@ -69,18 +57,16 @@ const MinimalBriefsList = () => {
   
   if (loading) return <div>Loading...</div>;
   
-  if (error) {
-    return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
-        <h2 className="text-lg font-semibold">Error</h2>
-        <p>{error}</p>
-      </div>
-    );
-  }
-  
   return (
     <div className="p-4">
       <h1 className="text-xl font-bold mb-4">Minimal Briefs List</h1>
+      
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-4 text-red-700">
+          <h2 className="text-lg font-semibold">Error</h2>
+          <p>{error}</p>
+        </div>
+      )}
       
       <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Available Columns</h2>
@@ -97,7 +83,7 @@ const MinimalBriefsList = () => {
         </div>
       </div>
       
-      <div>
+      <div className="mb-6">
         <h2 className="text-lg font-semibold mb-2">Briefs ({briefs.length})</h2>
         {briefs.length > 0 ? (
           <div className="overflow-x-auto">
@@ -131,28 +117,16 @@ const MinimalBriefsList = () => {
         )}
       </div>
       
-      <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-md">
-        <h2 className="text-lg font-semibold mb-2">SQL Fix Recommendations</h2>
-        <div className="bg-gray-50 p-4 rounded-md">
-          <p className="mb-2">Try running these SQL statements:</p>
-          <pre className="bg-gray-100 p-2 rounded-md overflow-x-auto text-sm">
-{`-- 1. Check if table exists and has data
-SELECT COUNT(*) FROM briefs;
-
--- 2. Disable RLS temporarily to check for permission issues
-ALTER TABLE briefs DISABLE ROW LEVEL SECURITY;
-
--- 3. Try a simple query with all columns
-SELECT * FROM briefs LIMIT 1;
-
--- 4. Check for duplicated columns (case sensitivity issues)
-SELECT column_name, data_type 
-FROM information_schema.columns
-WHERE table_name = 'briefs'
-ORDER BY column_name;`}
-          </pre>
+      {debugInfo && (
+        <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-md">
+          <h2 className="text-lg font-semibold mb-2">Debug Information</h2>
+          <div className="bg-gray-50 p-4 rounded-md">
+            <pre className="whitespace-pre-wrap text-sm">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

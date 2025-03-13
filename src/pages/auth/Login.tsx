@@ -16,13 +16,14 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login = () => {
-  const { signIn, refreshSession } = useAuth();
+  const { signIn, resetPassword, refreshSession } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [authError, setAuthError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionIssue, setSessionIssue] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isResettingPassword, setIsResettingPassword] = useState(false);
   
   // Check for existing user first
   useEffect(() => {
@@ -58,6 +59,7 @@ const Login = () => {
     register,
     handleSubmit,
     formState: { errors },
+    getValues,
   } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
@@ -117,6 +119,30 @@ const Login = () => {
       setSessionIssue(false);
     } finally {
       setIsRefreshing(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    const email = getValues('email');
+    if (!email) {
+      setAuthError('Please enter your email address to reset your password.');
+      return;
+    }
+
+    try {
+      setIsResettingPassword(true);
+      setAuthError(null);
+      const { error } = await resetPassword(email);
+      
+      if (error) {
+        setAuthError(error.message);
+      } else {
+        setAuthError('Password reset link has been sent to your email.');
+      }
+    } catch (err: any) {
+      setAuthError(err.message || 'Failed to send reset password link.');
+    } finally {
+      setIsResettingPassword(false);
     }
   };
 
@@ -214,9 +240,14 @@ const Login = () => {
           </div>
 
           <div className="text-sm">
-            <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-              Forgot your password?
-            </a>
+            <button
+              type="button"
+              onClick={handleForgotPassword}
+              disabled={isResettingPassword}
+              className="font-medium text-blue-600 hover:text-blue-500"
+            >
+              {isResettingPassword ? 'Sending reset link...' : 'Forgot your password?'}
+            </button>
           </div>
         </div>
 

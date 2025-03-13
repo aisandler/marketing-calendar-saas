@@ -25,6 +25,11 @@ const DashboardLayout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // If no user, don't render anything - let ProtectedRoute handle the redirect
+  if (!user) {
+    return null;
+  }
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
@@ -44,7 +49,7 @@ const DashboardLayout: React.FC = () => {
   ];
 
   // Only show user management for admins
-  if (user?.role === 'admin') {
+  if (user.role === 'admin') {
     navigation.push({ name: 'Users', href: '/users', icon: Users });
   }
 
