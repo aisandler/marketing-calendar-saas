@@ -6,10 +6,15 @@ A comprehensive marketing resource management platform that helps teams manage t
 
 - **Campaign Management**: Organize and track marketing campaigns
 - **Brief Management**: Create and manage marketing briefs with detailed specifications
-- **Resource Planning**: Track resource allocation and capacity
+- **Resource Management**: 
+  - Team-based organization and reporting
+  - Media type utilization tracking
+  - Capacity planning and forecasting
+  - Resource allocation visualization
+  - Cost tracking and reporting
 - **Brand Management**: Organize content by brand
 - **Collaboration**: Team-based workflow with roles and permissions
-- **Analytics**: Track progress and resource utilization
+- **Analytics**: Comprehensive reporting on progress, costs, and resource utilization
 
 ## Tech Stack
 
@@ -104,8 +109,10 @@ marketing-calendar-saas/
 The application uses the following tables:
 
 - `users`: User accounts with role-based permissions
+- `teams`: Teams for organizing resources
 - `resources`: Internal and external resources for marketing activities
 - `briefs`: Marketing briefs with detailed specifications
+- `campaigns`: Marketing campaigns that group briefs
 - `tradeshows`: Tradeshow events
 - `history`: Change history for briefs
 
@@ -182,7 +189,25 @@ interface Resource {
   id: string;
   name: string;
   type: 'internal' | 'agency' | 'freelancer';
+  capacity_hours?: number; // Weekly capacity in hours (default 40)
+  hourly_rate?: number; // Optional hourly rate for cost calculation
+  media_type?: string; // Optional media type for categorization
+  team_id?: string; // Reference to team
+  team?: Team; // Optional team data
   created_at: string;
+  updated_at?: string;
+}
+```
+
+## Team
+
+```typescript
+interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at?: string;
 }
 ```
 
@@ -321,6 +346,23 @@ If you're experiencing issues:
 1. Check that all dependencies are installed correctly
 2. Verify your Supabase connection settings
 3. Clear your browser cache if you see stale data
+
+## Documentation
+
+For more detailed information, please refer to the following guides:
+
+- `USER_GUIDE.md`: End-user guide for using the application
+- `DEVELOPER_GUIDE.md`: Technical documentation for developers
+- `RESOURCE_MANAGEMENT.md`: Detailed documentation of resource management features
+- `API_DOCUMENTATION.md`: API reference documentation
+- `DEPLOYMENT_GUIDE.md`: Guide for deploying the application
+
+## Roadmap and Feature Ideas
+
+To track the project's future direction and feature plans:
+
+- `ROADMAP.md`: Overview of planned features and enhancements
+- `FEATURE_IDEAS.md`: Detailed feature requests and enhancement ideas
 
 ## Contributing
 

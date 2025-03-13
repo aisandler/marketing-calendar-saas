@@ -401,33 +401,57 @@ const TeamUtilization = () => {
           <h4 className="text-md font-medium text-gray-800 mb-3">Team Utilization Distribution</h4>
           
           {teamUtilizationData.length > 0 ? (
-            <div className="h-10 bg-gray-200 rounded-full overflow-hidden">
-              {teamUtilizationData
+            (() => {
+              // First filter teams with resources and capacity
+              const teamsWithCapacity = teamUtilizationData
                 .filter(data => data.resourceCount > 0 && data.totalCapacity > 0)
-                .sort((a, b) => b.utilization - a.utilization)
-                .map((data, index) => {
-                  // Calculate width as proportion of total capacity
-                  const totalTeamCapacity = teamUtilizationData.reduce((sum, team) => 
-                    sum + (team.resourceCount > 0 ? team.totalCapacity : 0), 0);
-                  
-                  const widthPercentage = (data.totalCapacity / totalTeamCapacity) * 100;
-                  
-                  return (
-                    <div 
-                      key={data.team.id}
-                      className={`h-full inline-block relative ${getUtilizationColor(data.utilization)}`}
-                      style={{ width: `${widthPercentage}%` }}
-                      title={`${data.team.name}: ${data.utilization.toFixed(1)}%`}
-                    >
-                      {widthPercentage > 10 && (
-                        <span className="absolute inset-0 flex items-center justify-center text-xs text-white font-medium">
-                          {data.team.name}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-            </div>
+                .sort((a, b) => b.utilization - a.utilization);
+              
+              // Only proceed if there are valid teams after filtering
+              if (teamsWithCapacity.length === 0) {
+                return (
+                  <div className="text-center text-sm text-gray-500 p-4 border border-gray-200 rounded-md">
+                    No teams with capacity and resources available.
+                  </div>
+                );
+              }
+              
+              // Pre-calculate total capacity once to avoid recalculation in map
+              const totalTeamCapacity = teamsWithCapacity.reduce((sum, team) => 
+                sum + team.totalCapacity, 0);
+              
+              // Only proceed if total capacity is greater than zero
+              if (totalTeamCapacity <= 0) {
+                return (
+                  <div className="text-center text-sm text-gray-500 p-4 border border-gray-200 rounded-md">
+                    Total team capacity is zero.
+                  </div>
+                );
+              }
+              
+              return (
+                <div className="h-10 bg-gray-200 rounded-full overflow-hidden">
+                  {teamsWithCapacity.map((data, index) => {
+                    const widthPercentage = (data.totalCapacity / totalTeamCapacity) * 100;
+                    
+                    return (
+                      <div 
+                        key={data.team.id}
+                        className={`h-full inline-block relative ${getUtilizationColor(data.utilization)}`}
+                        style={{ width: `${widthPercentage}%` }}
+                        title={`${data.team.name}: ${data.utilization.toFixed(1)}%`}
+                      >
+                        {widthPercentage > 10 && (
+                          <span className="absolute inset-0 flex items-center justify-center text-xs text-white font-medium">
+                            {data.team.name}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()
           ) : (
             <div className="text-center text-sm text-gray-500 p-4 border border-gray-200 rounded-md">
               No team utilization data available.

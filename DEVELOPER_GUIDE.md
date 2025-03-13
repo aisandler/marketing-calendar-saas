@@ -124,6 +124,15 @@ The Marketing Calendar SaaS application follows a modern React architecture with
 - `DashboardLayout`: Layout for authenticated pages with navigation
 - `AuthLayout`: Layout for authentication pages
 
+### Resource Management Components
+
+- `ResourceManagement`: Main component for managing resources with tabbed interface
+- `TeamManagement`: Component for CRUD operations on teams
+- `MediaTypeUtilization`: Component for analyzing resource utilization by media type
+- `TeamUtilization`: Component for analyzing resource utilization by team
+- `ResourceDashboard`: Comprehensive dashboard with resource metrics and visualizations
+- `ResourceForecast`: Component for forecasting resource allocation over time
+
 ## Authentication System
 
 The authentication system is built on Supabase Auth and implemented through the `AuthContext` provider.
@@ -205,9 +214,16 @@ The application uses a PostgreSQL database with the following tables:
    - Key fields: `email`, `name`, `role`
    - Relationships: One-to-many with briefs (as creator and approver)
 
-2. **resources**
+2. **teams**
    - Primary key: `id` (UUID)
-   - Key fields: `name`, `type`
+   - Key fields: `name`, `description`
+   - Relationships: One-to-many with resources
+
+3. **resources**
+   - Primary key: `id` (UUID)
+   - Key fields: `name`, `type`, `capacity_hours`, `hourly_rate`, `media_type`
+   - Foreign keys:
+     - `team_id` → teams.id
    - Relationships: One-to-many with briefs
 
 3. **briefs**
@@ -241,15 +257,21 @@ users
      |         |
      |         |
 briefs         |
-+----+-------+----------+------------+-------------+--------+----------+
-| id | title | resource_id | approver_id | created_by | ... | history_id |
-+----+-------+----------+------------+-------------+--------+----------+
++----+-------+----------+------------+-------------+------------+----------+
+| id | title | resource_id | approver_id | created_by | estimated_hours | expenses | ... |
++----+-------+----------+------------+-------------+------------+----------+-----+
                ↑
                |
 resources      |
-+----+------+------+-----------+
-| id | name | type | created_at |
-+----+------+------+-----------+
++----+------+------+---------------+------------+------------+--------+-----------+
+| id | name | type | capacity_hours | hourly_rate | media_type | team_id | created_at |
++----+------+------+---------------+------------+------------+--------+-----------+
+                                                                ↑
+                                                                |
+teams                                                           |
++----+------+-------------+-----------+------------+
+| id | name | description | created_at | updated_at |
++----+------+-------------+-----------+------------+
 
 history
 +----+----------+------------+---------------+-----------+-----------+
@@ -260,6 +282,11 @@ tradeshows
 +----+------+------------+----------+-------------+-----------+
 | id | name | start_date | end_date | description | created_at |
 +----+------+------------+----------+-------------+-----------+
+
+campaigns
++----+------+-------------+----------+-----------+--------+-----------+
+| id | name | description | brand_id | start_date | status | created_by | ... |
++----+------+-------------+----------+-----------+--------+-----------+------+
 ```
 
 ### Row Level Security (RLS)
@@ -267,10 +294,12 @@ tradeshows
 The database uses Row Level Security to control access to data:
 
 - **users**: Only admins can insert/update/delete users
+- **teams**: Only admins and managers can insert/update/delete teams
 - **resources**: Only admins and managers can insert/update/delete resources
 - **briefs**: Users can view all briefs, but only update/delete their own or if they're admin/manager
 - **tradeshows**: Only admins and managers can insert/update/delete tradeshows
 - **history**: All users can view history, but it cannot be updated or deleted
+- **campaigns**: Only admins and managers can insert/update/delete campaigns
 
 ## State Management
 
@@ -431,10 +460,63 @@ const { error } = await supabase
 
 ### Adding a New Database Table
 
-1. Add the table definition to `supabase_setup.sql`
+1. Add the table definition to `supabase_setup.sql` or create a new migration file
 2. Add the corresponding TypeScript interface in `src/types/index.ts`
 3. Add the table type to `src/types/supabase.ts`
 4. Set up appropriate RLS policies
+
+Example migration for adding the teams table:
+
+```sql
+-- Create teams table
+CREATE TABLE IF NOT EXISTS teams (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Add team_id to resources
+ALTER TABLE resources ADD COLUMN IF NOT EXISTS team_id UUID REFERENCES teams(id);
+
+-- Create index on team_id for faster joins
+CREATE INDEX IF NOT EXISTS idx_resources_team_id ON resources(team_id);
+
+-- Add RLS policies for teams
+ALTER TABLE teams ENABLE ROW LEVEL SECURITY;
+
+-- Everyone can view teams
+CREATE POLICY "Teams are viewable by all authenticated users" 
+ON teams FOR SELECT 
+TO authenticated 
+USING (true);
+```
+
+The corresponding TypeScript interface:
+
+```typescript
+export interface Team {
+  id: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface Resource {
+  id: string;
+  name: string;
+  type: ResourceType;
+  capacity_hours?: number; 
+  hourly_rate?: number;
+  media_type?: string;
+  team_id?: string;
+  team?: Team;
+  created_at: string;
+  updated_at?: string;
+}
+```
 
 ## Testing
 

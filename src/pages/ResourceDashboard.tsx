@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Resource, Brief } from '../types';
 import MediaTypeUtilization from '../components/MediaTypeUtilization';
 import ResourceForecast from '../components/ResourceForecast';
-import { format } from 'date-fns';
+// Removed unused import
 import { BarChart3, Users, Briefcase, PieChart, TrendingUp } from 'lucide-react';
 
 const ResourceDashboard = () => {

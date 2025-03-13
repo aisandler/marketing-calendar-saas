@@ -87,6 +87,9 @@ const MediaTypeUtilization = () => {
     briefs.forEach(brief => {
       if (brief.resource_id && resourcesWithBriefs[brief.resource_id]) {
         resourcesWithBriefs[brief.resource_id].briefs.push(brief);
+      } else if (brief.resource_id) {
+        // Log warning for briefs with non-existent resource IDs
+        console.warn(`Brief ${brief.id} references non-existent resource ID: ${brief.resource_id}`);
       }
     });
 

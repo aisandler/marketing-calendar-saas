@@ -97,6 +97,8 @@ const ResourceForecast = () => {
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to load resource and brief data');
+        setLoading(false);
+        return;
       } finally {
         setLoading(false);
       }
@@ -139,24 +141,38 @@ const ResourceForecast = () => {
       const resourceBriefs = briefs.filter(brief => brief.resource_id === resource.id);
       
       resourceBriefs.forEach(brief => {
-        const briefStartDate = new Date(brief.start_date);
-        const briefEndDate = new Date(brief.due_date);
-        const briefDuration = eachDayOfInterval({ start: briefStartDate, end: briefEndDate });
+        // Check for valid dates
+        if (!brief.start_date || !brief.due_date) return;
         
-        // Estimate hours per day based on total hours and duration
-        const estimatedHours = brief.estimated_hours || 0;
-        const hoursPerDay = briefDuration.length > 0 ? estimatedHours / briefDuration.length : 0;
-        
-        // Distribute hours across days that fall within our forecast weeks
-        briefDuration.forEach(day => {
-          forecastWeeks.forEach(week => {
-            if (day >= week.startDate && day <= week.endDate) {
-              const weekKey = format(week.startDate, 'yyyy-MM-dd');
-              weeklyAllocation[weekKey] += hoursPerDay;
-              totalAllocated += hoursPerDay;
-            }
+        try {
+          const briefStartDate = new Date(brief.start_date);
+          const briefEndDate = new Date(brief.due_date);
+          
+          // Check for invalid dates (NaN)
+          if (isNaN(briefStartDate.getTime()) || isNaN(briefEndDate.getTime())) return;
+          
+          // Ensure start date is before or equal to end date
+          if (briefStartDate > briefEndDate) return;
+          
+          const briefDuration = eachDayOfInterval({ start: briefStartDate, end: briefEndDate });
+          
+          // Estimate hours per day based on total hours and duration
+          const estimatedHours = brief.estimated_hours || 0;
+          const hoursPerDay = briefDuration.length > 0 ? estimatedHours / briefDuration.length : 0;
+          
+          // Distribute hours across days that fall within our forecast weeks
+          briefDuration.forEach(day => {
+            forecastWeeks.forEach(week => {
+              if (day >= week.startDate && day <= week.endDate) {
+                const weekKey = format(week.startDate, 'yyyy-MM-dd');
+                weeklyAllocation[weekKey] += hoursPerDay;
+                totalAllocated += hoursPerDay;
+              }
+            });
           });
-        });
+        } catch (err) {
+          console.error('Error processing brief dates:', err);
+        }
       });
 
       // Calculate utilization as a percentage of capacity

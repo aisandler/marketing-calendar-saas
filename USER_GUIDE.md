@@ -231,8 +231,25 @@ To view all resources:
 2. You'll see a list of all resources with information:
    - Name
    - Type (Internal, Agency, Freelancer)
-   - Current assignments
-   - Availability
+   - Team assignment
+   - Media type
+   - Capacity (hours/week)
+   - Current allocation
+   - Availability status
+
+The resource list will show overallocated resources in red.
+
+### Resource Dashboard
+
+For advanced resource management:
+
+1. Click "Resource Dashboard" in the left sidebar
+2. This dashboard provides:
+   - Overview of all resource utilization
+   - Cost reporting by campaign
+   - Media type utilization analysis
+   - Team-based utilization grouping
+   - Resource forecasting
 
 ### Adding a Resource
 
@@ -241,8 +258,56 @@ To add a new resource (requires Manager or Admin role):
 1. From the Resources list, click the "+ New Resource" button
 2. Fill in the required information:
    - **Name**: The resource's name
-   - **Type**: Select the resource type
+   - **Type**: Select the resource type (Internal, Agency, Freelancer)
+   - **Media Type**: The resource's specialization (e.g., Design, Content, Video)
+   - **Team**: Assign to a team for grouping and reporting
+   - **Capacity**: Weekly capacity in hours (default: 40)
+   - **Hourly Rate**: For cost calculation (optional, typically for external resources)
 3. Click "Create Resource"
+
+### Managing Teams
+
+To manage teams (requires Manager or Admin role):
+
+1. From the Resources page, click on the "Teams" tab
+2. You can:
+   - View all teams
+   - Add new teams
+   - Edit existing teams
+   - Delete teams (only if they have no assigned resources)
+
+### Media Type Utilization
+
+To view resource utilization by media type:
+
+1. From the Resources page, click on the "Media Type Utilization" tab
+2. This view shows:
+   - Overall utilization by media type
+   - Resource allocation within each media type
+   - Available capacity by media type
+   - Color-coded utilization status
+
+### Team Utilization
+
+To view resource utilization by team:
+
+1. From the Resources page, click on the "Team Utilization" tab
+2. This view displays:
+   - Utilization metrics for each team
+   - Individual resource allocation within teams
+   - Team capacity and utilization percentages
+   - Overallocation warnings by team
+
+### Resource Forecasting
+
+To view and plan future resource allocation:
+
+1. From the Resource Dashboard, select the "Resource Forecast" tab
+2. This view provides:
+   - Week-by-week projection of resource allocation
+   - Advance notice of potential bottlenecks
+   - Filtering by resource type and media type
+   - Color-coded utilization indicators
 
 ### Assigning Resources to Briefs
 
@@ -251,14 +316,18 @@ To assign a resource to a brief:
 1. Navigate to the brief details page
 2. Click "Edit"
 3. Use the Resource dropdown to select a resource
-4. Click "Save Changes"
+4. Specify estimated hours for capacity planning
+5. The system will warn you if the resource is already overallocated
+6. Click "Save Changes"
 
-Alternatively, from the Resources page:
+### Cost Tracking
 
-1. Find the resource you want to assign
-2. Click "Assign to Brief"
-3. Select a brief from the dropdown
-4. Click "Assign"
+When assigning resources to briefs, the system calculates costs:
+
+1. For resources with an hourly rate, costs are calculated automatically
+2. You can add additional expenses to each brief
+3. The system provides cost reporting at both brief and campaign levels
+4. Campaign detail pages show cost breakdowns by resource type
 
 ## Tradeshows
 
@@ -430,6 +499,135 @@ For technical issues or questions not covered here, please contact your system a
 
 ## Resource Management
 
+The application provides comprehensive tools for managing your marketing resources, tracking capacity, and monitoring costs.
+
+### Resource Types and Allocation
+
+Resources can be:
+- **Internal**: Team members within your organization
+- **Agency**: External agency resources
+- **Freelancer**: Independent contractors
+
+Every resource can be:
+- Assigned to a team for organizational structure
+- Categorized by media type for skill-based reporting
+- Given a capacity in hours per week (default is 40)
+- Assigned an hourly rate for cost tracking
+
+### Capacity Planning
+
+The system helps you manage resource capacity:
+1. Each resource has a weekly capacity in hours
+2. Brief assignments include estimated hours
+3. The system calculates utilization as a percentage
+4. Resources are marked as overallocated when assignments exceed capacity
+5. Visual indicators show allocation status (green, blue, amber, red)
+
+### Team-Based Management
+
+Organize resources into teams:
+1. Create teams to represent departments or functional groups
+2. Assign resources to teams
+3. View utilization and allocation by team
+4. Identify overallocated teams
+5. Balance work across teams
+
+### Media Type Specialization
+
+Track resources by their specialization:
+1. Assign media types to resources (e.g., Design, Content, Social)
+2. View utilization by media type
+3. Identify capacity constraints in specific skill areas
+4. Make informed hiring or contracting decisions
+
+### Resource Forecasting
+
+Plan ahead with resource forecasting:
+1. View week-by-week allocation across resources
+2. Identify future bottlenecks before they occur
+3. Filter by resource type and media type
+4. Make proactive capacity planning decisions
+
+### Cost Tracking and Reporting
+
+Monitor project costs:
+1. Set hourly rates for resources
+2. Track estimated hours and expenses
+3. View cost breakdowns at brief and campaign levels
+4. Analyze costs by resource type
+5. Make budget-aware resourcing decisions
+
 ## Brand Management
 
 ## Reports and Analytics 
+
+The application provides various reports and analytics to help you make data-driven decisions.
+
+### Resource Utilization Reports
+
+Access comprehensive resource utilization reports:
+
+1. **Resource Dashboard**: Overview of all resource metrics
+   - Total capacity and allocation
+   - Utilization by resource type
+   - Most and least utilized resources
+   - Allocation warnings and alerts
+
+2. **Team Utilization**: Resource allocation by team
+   - Team-level utilization percentages
+   - Resource breakdown within teams
+   - Team capacity distribution
+   - Comparative team performance
+
+3. **Media Type Utilization**: Allocation by specialization
+   - Utilization rates by media type
+   - Resource distribution across media types
+   - Capacity constraints by skill area
+   - Media type allocation trends
+
+### Cost Reporting
+
+Track and analyze costs across your marketing activities:
+
+1. **Campaign Cost Reports**: Cost analysis at the campaign level
+   - Total campaign costs
+   - Resource costs vs. additional expenses
+   - Cost breakdown by resource type
+   - Visual cost distribution
+
+2. **Brief Cost Details**: Detailed cost tracking for individual briefs
+   - Resource hourly rates and costs
+   - Estimated hours and completion percentage
+   - Additional expenses tracking
+   - Total brief cost calculation
+
+3. **Resource Cost Analysis**: Cost reporting by resource
+   - Hourly rate comparisons
+   - Cost efficiency analysis
+   - Internal vs. external resource costs
+   - Budget vs. actual tracking
+
+### Forecasting and Planning
+
+Plan ahead with predictive reporting:
+
+1. **Resource Forecast**: Week-by-week resource allocation projection
+   - Future utilization rates
+   - Capacity bottlenecks identification
+   - Resource availability preview
+   - "What-if" planning scenarios
+
+2. **Capacity Planning**: Strategic resource planning tools
+   - Long-term capacity needs analysis
+   - Team growth recommendations
+   - Skill gap identification
+   - Overallocation risk assessment
+
+### Export Options
+
+Export data for further analysis:
+
+1. From any report view, click the "Export" button
+2. Data is formatted as CSV for easy import into spreadsheet applications
+3. Custom exports with filtered data are available
+4. Regular export scheduling can be set up by administrators

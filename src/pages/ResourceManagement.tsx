@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Plus, Edit, Trash, Download, BarChart3, Users, Briefcase } from 'lucide-react';
+import { format } from 'date-fns';
 import type { Resource, Brief, Team } from '../types';
 import MediaTypeUtilization from '../components/MediaTypeUtilization';
 import TeamManagement from '../components/teams/TeamManagement';
@@ -18,6 +19,7 @@ const ResourceManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isOverallocationWarningOpen, setIsOverallocationWarningOpen] = useState(false);
   const [currentResource, setCurrentResource] = useState<Resource | null>(null);
   const [activeTab, setActiveTab] = useState<'resources' | 'media-types' | 'teams' | 'team-utilization'>('resources');
   const [teams, setTeams] = useState<Team[]>([]);
@@ -129,6 +131,18 @@ const ResourceManagement = () => {
     
     if (!canManageResources || !currentResource) return;
     
+    // Check if the new capacity would cause overallocation
+    const totalAllocated = getTotalHoursAllocated(currentResource.id);
+    if (totalAllocated > formData.capacity_hours) {
+      // If capacity is being reduced below current allocation, show warning
+      if (!isOverallocationWarningOpen) {
+        setIsOverallocationWarningOpen(true);
+        return;
+      }
+      // If user confirms overallocation, continue with update
+      setIsOverallocationWarningOpen(false);
+    }
+    
     try {
       setLoading(true);
       
@@ -149,8 +163,18 @@ const ResourceManagement = () => {
       if (error) throw error;
       
       // Update resources list
+      if (!data || data.length === 0) {
+        throw new Error('No data returned from update operation');
+      }
+      
+      // Validate returned data has required Resource properties
+      const updatedResource = data[0];
+      if (!updatedResource.id || !updatedResource.name || !updatedResource.type) {
+        throw new Error('Updated resource data is incomplete');
+      }
+      
       setResources(resources.map(r => 
-        r.id === currentResource.id ? (data[0] as Resource) : r
+        r.id === currentResource.id ? updatedResource as Resource : r
       ));
       
       // Reset form and close modal
@@ -178,9 +202,21 @@ const ResourceManagement = () => {
     try {
       setLoading(true);
       
-      // Resource relationship to briefs no longer exists in schema
-      // No need to check for dependent briefs
+      // First check if there are any briefs referencing this resource
+      const { data: referencedBriefs, error: briefsError } = await supabase
+        .from('briefs')
+        .select('id, title')
+        .eq('resource_id', currentResource.id)
+        .limit(1);
       
+      if (briefsError) throw briefsError;
+      
+      // If briefs reference this resource, prevent deletion
+      if (referencedBriefs && referencedBriefs.length > 0) {
+        throw new Error(`Cannot delete this resource because it is assigned to ${referencedBriefs.length} briefs. Please reassign these briefs before deleting.`);
+      }
+      
+      // Proceed with deletion if no references exist
       const { error } = await supabase
         .from('resources')
         .delete()
@@ -220,8 +256,8 @@ const ResourceManagement = () => {
     setIsDeleteModalOpen(true);
   };
 
-  // Get total hours allocated to a resource
-  const getResourceUtilization = (resourceId: string) => {
+  // Get brief count for a resource
+  const getResourceBriefCount = (resourceId: string) => {
     const resourceBriefs = briefs.filter(brief => brief.resource_id === resourceId);
     return resourceBriefs.length;
   };
@@ -262,10 +298,10 @@ const ResourceManagement = () => {
       resource.media_type || '',
       resource.capacity_hours || 40,
       resource.hourly_rate || 0,
-      getResourceUtilization(resource.id),
+      getResourceBriefCount(resource.id),
       getTotalHoursAllocated(resource.id),
       isResourceOverallocated(resource.id) ? 'Overallocated' : 'Available',
-      resource.created_at
+      resource.created_at ? format(new Date(resource.created_at), 'yyyy-MM-dd') : ''
     ].join(','));
     
     const csv = [headers, ...rows].join('\n');
@@ -291,6 +327,17 @@ const ResourceManagement = () => {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
+          <strong>Error:</strong> {error}
+          <button 
+            className="float-right text-red-700 hover:text-red-900"
+            onClick={() => setError(null)}
+          >
+            &times;
+          </button>
+        </div>
+      )}
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -415,8 +462,8 @@ const ResourceManagement = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {resources.length > 0 ? (
                 resources.map((resource) => {
-                  // Find team name
-                  const team = teams.find(t => t.id === resource.team_id);
+                  // Find team name, safely handle null/undefined team_id
+                  const team = resource.team_id ? teams.find(t => t.id === resource.team_id) : undefined;
                   
                   return (
                     <tr key={resource.id} className={`hover:bg-gray-50 ${isResourceOverallocated(resource.id) ? 'bg-red-50' : ''}`}>
@@ -494,6 +541,43 @@ const ResourceManagement = () => {
         <TeamUtilization />
       )}
       
+      {/* Overallocation Warning Modal */}
+      {isOverallocationWarningOpen && currentResource && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Resource Overallocation Warning</h3>
+            <p className="text-gray-600 mb-6">
+              Reducing capacity to {formData.capacity_hours} hours will overallocate <span className="font-semibold">{currentResource.name}</span>.
+              <br /><br />
+              Current allocation: <span className="font-semibold">{getTotalHoursAllocated(currentResource.id)} hours</span>
+              <br />
+              New capacity: <span className="font-semibold">{formData.capacity_hours} hours</span>
+              <br /><br />
+              Are you sure you want to continue with this change?
+            </p>
+            <div className="flex justify-end space-x-3">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => setIsOverallocationWarningOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="button"
+                variant="destructive"
+                onClick={(e) => {
+                  setIsOverallocationWarningOpen(false);
+                  handleEditResource(e as React.FormEvent);
+                }}
+              >
+                Continue with Overallocation
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Resource Modal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -570,7 +654,11 @@ const ResourceManagement = () => {
                     id="capacity-hours"
                     type="number"
                     value={formData.capacity_hours}
-                    onChange={(e) => setFormData({ ...formData, capacity_hours: parseInt(e.target.value) || 40 })}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      const capacity_hours = !isNaN(value) && value > 0 ? value : 40;
+                      setFormData({ ...formData, capacity_hours });
+                    }}
                     min="1"
                     required
                   />
@@ -584,7 +672,12 @@ const ResourceManagement = () => {
                     id="hourly-rate"
                     type="number"
                     value={formData.hourly_rate}
-                    onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      // Ensure value is non-negative
+                      const value = parseFloat(e.target.value);
+                      const hourly_rate = !isNaN(value) && value >= 0 ? value : 0;
+                      setFormData({ ...formData, hourly_rate });
+                    }}
                     min="0"
                     step="0.01"
                   />
@@ -690,7 +783,11 @@ const ResourceManagement = () => {
                     id="edit-capacity-hours"
                     type="number"
                     value={formData.capacity_hours}
-                    onChange={(e) => setFormData({ ...formData, capacity_hours: parseInt(e.target.value) || 40 })}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value);
+                      const capacity_hours = !isNaN(value) && value > 0 ? value : 40;
+                      setFormData({ ...formData, capacity_hours });
+                    }}
                     min="1"
                     required
                   />
@@ -704,7 +801,12 @@ const ResourceManagement = () => {
                     id="edit-hourly-rate"
                     type="number"
                     value={formData.hourly_rate}
-                    onChange={(e) => setFormData({ ...formData, hourly_rate: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      // Ensure value is non-negative
+                      const value = parseFloat(e.target.value);
+                      const hourly_rate = !isNaN(value) && value >= 0 ? value : 0;
+                      setFormData({ ...formData, hourly_rate });
+                    }}
                     min="0"
                     step="0.01"
                   />

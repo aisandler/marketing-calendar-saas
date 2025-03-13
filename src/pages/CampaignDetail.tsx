@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { Brief as BaseBrief, ResourceType } from '../types';
 
 interface Campaign {
   id: string;
@@ -22,19 +23,12 @@ interface Campaign {
   };
 }
 
-interface Brief {
-  id: string;
-  title: string;
-  status: string;
-  start_date: string;
-  due_date: string;
-  resource_id?: string;
-  estimated_hours?: number;
-  expenses?: number;
+// Extend the base Brief interface with campaign-specific resource details
+interface Brief extends Omit<BaseBrief, 'resource'> {
   resource?: {
     id: string;
     name: string;
-    type: string;
+    type: ResourceType;
     hourly_rate?: number;
   } | null;
 }
