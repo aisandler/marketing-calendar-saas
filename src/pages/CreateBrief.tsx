@@ -16,9 +16,9 @@ const briefSchema = z.object({
   start_date: z.string().min(1, 'Start date is required'),
   due_date: z.string().min(1, 'Due date is required'),
   brand_id: z.string().min(1, 'Brand is required'),
-  campaign_id: z.string().nullable(),
-  resource_id: z.string().nullable(),
-  approver_id: z.string().nullable(),
+  campaign_id: z.string().nullable().transform(val => val || null),
+  resource_id: z.string().nullable().transform(val => val || null),
+  approver_id: z.string().nullable().transform(val => val || null),
   status: z.enum([
     'draft', 
     'pending_approval', 
@@ -265,12 +265,23 @@ const CreateBrief = () => {
       setLoading(true);
       setError(null);
       
+      // Clean up the data before submission
+      const cleanedData = {
+        ...data,
+        campaign_id: data.campaign_id || null,
+        resource_id: data.resource_id || null,
+        approver_id: data.approver_id || null,
+        estimated_hours: data.estimated_hours || null,
+        expenses: data.expenses || null,
+        description: data.description || null
+      };
+      
       if (isEditMode && id) {
         // Update existing brief
         const { error } = await supabase
           .from('briefs')
           .update({
-            ...data,
+            ...cleanedData,
             updated_at: new Date().toISOString(),
           })
           .eq('id', id);
@@ -281,15 +292,13 @@ const CreateBrief = () => {
         if (existingBrief) {
           await supabase
             .from('history')
-            .insert([
-              {
-                brief_id: id,
-                changed_by: user.id,
-                previous_state: existingBrief,
-                new_state: data,
-                created_at: new Date().toISOString()
-              }
-            ]);
+            .insert([{
+              brief_id: id,
+              changed_by: user.id,
+              previous_state: existingBrief,
+              new_state: cleanedData,
+              created_at: new Date().toISOString()
+            }]);
         }
         
         // Navigate to the brief detail page
@@ -297,7 +306,7 @@ const CreateBrief = () => {
       } else {
         // Create new brief
         const briefData = {
-          ...data,
+          ...cleanedData,
           created_by: user.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -310,7 +319,14 @@ const CreateBrief = () => {
           .select()
           .single();
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error creating brief:', error);
+          throw new Error(error.message);
+        }
+        
+        if (!newBrief) {
+          throw new Error('Failed to create brief - no data returned');
+        }
         
         // Navigate to the brief detail page
         navigate(`/briefs/${newBrief.id}`);
