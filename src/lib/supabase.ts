@@ -13,16 +13,23 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    storageKey: 'marketing-cal-auth',
-    flowType: 'pkce'
+    storageKey: 'marketing-cal-auth'
   },
   global: {
     headers: {
-      'x-application-name': 'marketing-cal-bolt',
-      'Accept': 'application/json'
+      'x-application-name': 'marketing-cal-bolt'
     }
   },
   db: {
     schema: 'public'
+  }
+});
+
+// Add error handling for connection issues
+supabase.auth.onAuthStateChange((event, session) => {
+  if (event === 'SIGNED_OUT') {
+    // Clear any cached data
+    localStorage.removeItem('marketing-cal-auth');
+    sessionStorage.clear();
   }
 });

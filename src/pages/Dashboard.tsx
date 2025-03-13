@@ -2,18 +2,31 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
+import { formatDate } from '../lib/utils';
 import { Button } from '../components/ui/Button';
-import { Calendar, FileText, Clock, AlertTriangle, ChevronRight, Plus } from 'lucide-react';
-import type { Brief, Tradeshow, BriefStatus, Priority } from '../types';
+import { Calendar, FileText, Clock, AlertTriangle, Plus } from 'lucide-react';
 
-const Dashboard = () => {
+interface Brief {
+  id: string;
+  title: string;
+  status: string;
+  start_date: string;
+  due_date: string;
+}
+
+interface DashboardStats {
+  totalBriefs: number;
+  pendingApproval: number;
+  inProgress: number;
+  resourceConflicts: number;
+}
+
+const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [briefs, setBriefs] = useState<Brief[]>([]);
-  const [tradeshows, setTradeshows] = useState<Tradeshow[]>([]);
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<DashboardStats>({
     totalBriefs: 0,
     pendingApproval: 0,
     inProgress: 0,
@@ -21,122 +34,65 @@ const Dashboard = () => {
   });
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
+    const loadDashboard = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        // Fetch briefs with error handling
-        try {
-          const { data: briefsData, error: briefsError } = await supabase
-            .from('briefs')
-            .select(`
-              id,
-              title,
-              status,
-              start_date,
-              due_date
-            `)
-            .order('due_date', { ascending: true })
-            .limit(5);
+        // Fetch briefs
+        const { data: briefsData, error: briefsError } = await supabase
+          .from('briefs')
+          .select('*')
+          .order('due_date', { ascending: true });
 
-          if (briefsError) {
-            console.error('Error fetching briefs:', briefsError);
-            setBriefs([]);
-          } else if (briefsData) {
-            // Convert to typed briefs
-            const typedBriefs = briefsData.map(brief => {
-              const typedBrief: Brief = {
-                ...brief,
-                status: brief.status as BriefStatus,
-                // Priority field no longer available in the schema
-                priority: undefined,
-                resource: null // We no longer have resource name data
-              };
-              return typedBrief;
-            });
-            setBriefs(typedBriefs);
-            
-            // Calculate stats with type-safe filters
-            const stats = {
-              totalBriefs: typedBriefs.length,
-              pendingApproval: typedBriefs.filter(b => b.status === 'pending_approval').length,
-              inProgress: typedBriefs.filter(b => b.status === 'in_progress').length,
-              resourceConflicts: 0
-            };
-            setStats(stats);
-          }
-        } catch (err) {
-          console.error('Error processing briefs:', err);
-        }
+        if (briefsError) throw briefsError;
 
-        // Note: Tradeshows table has been removed from the schema
-        // Setting empty tradeshows array to avoid errors
-        setTradeshows([]);
+        const typedBriefs = (briefsData || []) as Brief[];
+        setBriefs(typedBriefs);
 
-      } catch (err: any) {
-        console.error('Error fetching dashboard data:', err);
-        setError('Failed to load some dashboard data. Please try refreshing the page.');
+        // Calculate stats
+        setStats({
+          totalBriefs: typedBriefs.length,
+          pendingApproval: typedBriefs.filter(b => b.status === 'pending_approval').length,
+          inProgress: typedBriefs.filter(b => b.status === 'in_progress').length,
+          resourceConflicts: 0 // This can be updated when resource conflict logic is implemented
+        });
+
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
+        setError('Failed to load dashboard data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    loadDashboard();
+  }, [user?.id]);
 
-  const today = new Date();
+  // Calculate upcoming deadlines (next 7 days)
   const upcomingDeadlines = briefs.filter(brief => {
-    try {
-      const dueDate = new Date(brief.due_date);
-      const diffTime = dueDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      return diffDays <= 7 && diffDays >= 0;
-    } catch (err) {
-      console.error('Error processing brief date:', err);
-      return false;
-    }
+    const dueDate = new Date(brief.due_date);
+    const today = new Date();
+    const diffTime = dueDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 7 && diffDays >= 0;
   });
 
   if (loading) {
     return (
-      <div className="p-4">
-        <div className="animate-pulse space-y-4">
-          <div className="h-8 bg-gray-200 rounded w-1/4"></div>
-          <div className="space-y-3">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-4 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="p-4">
-        <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <AlertTriangle className="h-5 w-5 text-yellow-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm">{error}</p>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Welcome banner */}
       <div className="bg-white shadow rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-800">Welcome back, {user?.name}</h2>
+            <h2 className="text-xl font-semibold text-gray-800">Welcome back, {user?.email}</h2>
             <p className="text-gray-600 mt-1">Here's what's happening with your marketing projects today.</p>
           </div>
           <div>
@@ -163,7 +119,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0 bg-yellow-100 rounded-md p-3">
@@ -175,7 +131,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
@@ -187,7 +143,7 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white shadow rounded-lg p-6">
           <div className="flex items-center">
             <div className="flex-shrink-0 bg-red-100 rounded-md p-3">
@@ -216,9 +172,12 @@ const Dashboard = () => {
                     Due: {formatDate(brief.due_date)}
                   </p>
                 </div>
-                <div className="ml-4 flex-shrink-0 flex items-center space-x-2">
-                  {/* Priority field no longer available */}
-                  <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
+                <div className="ml-4 flex-shrink-0">
+                  <span className={`px-2 py-1 text-xs rounded-full ${
+                    brief.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
+                    brief.status === 'in_progress' ? 'bg-green-100 text-green-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
                     {brief.status.replace('_', ' ')}
                   </span>
                 </div>
@@ -226,18 +185,21 @@ const Dashboard = () => {
             ))}
           </div>
         ) : (
-          <p className="text-gray-500 text-center py-4">No deadlines in the next 7 days.</p>
-        )}
-        {upcomingDeadlines.length > 0 && (
-          <div className="mt-4">
-            <Link to="/briefs" className="text-sm font-medium text-blue-600 hover:text-blue-700">
-              View all briefs →
-            </Link>
-          </div>
+          <p className="text-gray-500 text-center py-4">No deadlines in the next 7 days</p>
         )}
       </div>
 
-      {/* Note: Tradeshows section removed as the table no longer exists in the schema */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">
+          <p>{error}</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="mt-2 text-sm text-red-600 hover:text-red-800"
+          >
+            Retry loading
+          </button>
+        </div>
+      )}
     </div>
   );
 };
