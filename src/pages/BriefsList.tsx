@@ -6,7 +6,41 @@ import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp } from 'lucide-react';
-import type { Brief, Resource, User } from '../types';
+import type { Resource, User } from '../types';
+
+interface Brief {
+  id: string;
+  title: string;
+  description: string | null;
+  campaign_id: string | null;
+  brand_id: string;
+  resource_id: string | null;
+  start_date: string;
+  due_date: string;
+  estimated_hours: number | null;
+  status: string;
+  channel: string;
+  specifications: any | null;
+  created_by: string;
+  approver_id: string | null;
+  created_at: string;
+  updated_at: string;
+  expenses: number | null;
+  brand?: {
+    id: string;
+    name: string;
+  };
+  resource?: {
+    id: string;
+    name: string;
+    type: string;
+    media_type: string | null;
+  };
+  created_by_user?: {
+    id: string;
+    name: string;
+  };
+}
 
 const BriefsList = () => {
   const [loading, setLoading] = useState(true);
@@ -33,7 +67,12 @@ const BriefsList = () => {
         // Fetch briefs with * to get all columns
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('*')
+          .select(`
+            *,
+            brand:brands(id, name),
+            resource:resources(id, name, type, media_type, hourly_rate),
+            created_by_user:users!created_by(id, name)
+          `)
           .order('due_date', { ascending: true });
         
         if (briefsError) {
@@ -41,6 +80,19 @@ const BriefsList = () => {
           setError(`Failed to load briefs: ${briefsError.message}`);
           return;
         }
+        
+        // More detailed debug logging
+        console.log('Raw briefs data:', briefsData);
+        briefsData?.forEach(brief => {
+          if (brief.title.includes('SHOP MKTPLACE')) {
+            console.log('SHOP MKTPLACE Brief details:', {
+              title: brief.title,
+              resource_id: brief.resource_id,
+              resource: brief.resource,
+              raw_brief: brief
+            });
+          }
+        });
         
         // Fetch resources for resource filtering and display
         const { data: resourcesData, error: resourcesError } = await supabase
@@ -54,12 +106,12 @@ const BriefsList = () => {
           return;
         }
         
-        // Extract unique media types
+        // Extract unique media types (now from channel field)
         const uniqueMediaTypes = Array.from(
           new Set(
-            resourcesData
-              .filter(resource => resource.media_type)
-              .map(resource => resource.media_type)
+            briefsData
+              .filter(brief => brief.channel)
+              .map(brief => brief.channel)
           )
         ).sort() as string[];
         
@@ -100,10 +152,8 @@ const BriefsList = () => {
         setBriefs(briefsData.map(brief => ({
           ...brief,
           priority: 'medium', // Default priority
-          resource_id: null, // Default to no resource
-          campaign_id: null, // Default to no campaign
-          brand_id: brands.length > 0 ? brands[0].id : '', // Use first brand as fallback
-          resource: null,
+          campaign_id: brief.campaign_id || null, // Preserve existing campaign_id
+          brand_id: brief.brand_id || (brands.length > 0 ? brands[0].id : ''), // Preserve existing brand_id
           description: brief.description || undefined,
           specifications: brief.specifications || undefined,
           estimated_hours: brief.estimated_hours || undefined,
@@ -399,7 +449,6 @@ const BriefsList = () => {
                   className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
                 >
                   <option value="">All Media Types</option>
-                  <option value="null">Unspecified</option>
                   {mediaTypes.map((mediaType) => (
                     <option key={mediaType} value={mediaType}>
                       {mediaType}
@@ -432,7 +481,7 @@ const BriefsList = () => {
                 Title
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Channel
+                Media Type
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Due Date
@@ -443,12 +492,8 @@ const BriefsList = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Brand
               </th>
-              {/* Priority column removed as field no longer exists */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Resource
-              </th>
-              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Media Type
               </th>
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Created By
@@ -476,22 +521,19 @@ const BriefsList = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getBrandName(brief.brand_id)}
+                    {brief.brand?.name || 'Unknown'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getResourceName(brief.resource_id)}
+                    {brief.resource?.name || 'Unassigned'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getResourceMediaType(brief.resource_id) || 'Not specified'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {getUserName(brief.created_by)}
+                    {brief.created_by_user?.name || 'Unknown'}
                   </td>
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
                   No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
                     <button 
                       onClick={resetFilters}
