@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -41,6 +41,8 @@ type BriefFormData = z.infer<typeof briefSchema>;
 
 const CreateBrief = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('campaign');
   const isEditMode = !!id;
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -129,6 +131,23 @@ const CreateBrief = () => {
           
         if (campaignsError) throw campaignsError;
         
+        // If we have a campaign ID from the URL, pre-select it and its brand
+        if (campaignId && !isEditMode) {
+          const { data: campaign } = await supabase
+            .from('campaigns')
+            .select('id, name, brand_id')
+            .eq('id', campaignId)
+            .single();
+            
+          if (campaign) {
+            reset({
+              ...watch(),
+              campaign_id: campaign.id,
+              brand_id: campaign.brand_id
+            });
+          }
+        }
+
         setResources(resourcesData as Resource[]);
         setApprovers(approversData as User[]);
         setBrands(brandsData || []);
@@ -166,7 +185,7 @@ const CreateBrief = () => {
     };
     
     fetchData();
-  }, [id, isEditMode, reset]);
+  }, [id, isEditMode, campaignId, reset, watch]);
 
   // Check for resource conflicts when relevant fields change
   useEffect(() => {
