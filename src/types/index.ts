@@ -50,6 +50,8 @@ export interface Brief {
   start_date: string;
   due_date: string;
   channel?: string;
+  campaign_id?: string;
+  brand_id: string;
   resource_id?: string;
   approver_id?: string;
   priority?: Priority;

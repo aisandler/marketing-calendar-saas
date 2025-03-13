@@ -11,13 +11,17 @@ import BriefDetail from './pages/BriefDetail';
 import CreateBrief from './pages/CreateBrief';
 import ResourceManagement from './pages/ResourceManagement';
 import ResourceDashboard from './pages/ResourceDashboard';
-import TradeshowsList from './pages/TradeshowsList';
+import BrandsManagement from './pages/BrandsManagement';
 import UserManagement from './pages/UserManagement';
+import DiagnosticsPage from './pages/DiagnosticsPage';
 import NotFound from './pages/NotFound';
 import Login from './pages/auth/Login';
 import CampaignsList from './pages/CampaignsList';
 import CampaignDetail from './pages/CampaignDetail';
 import CreateCampaign from './pages/CreateCampaign';
+import BrandsDiagnosticsSimple from './pages/BrandsDiagnosticsSimple';
+import MinimalBrandsTest from './pages/MinimalBrandsTest';
+import SimpleBrands from './pages/SimpleBrands';
 
 function App() {
   return (
@@ -30,7 +34,7 @@ function App() {
             <Route path="/register" element={<Register />} />
           </Route>
 
-          {/* Protected Routes */}
+          {/* Protected Routes with Dashboard Layout */}
           <Route element={
             <ProtectedRoute>
               <DashboardLayout />
@@ -42,13 +46,19 @@ function App() {
             <Route path="/campaigns/new" element={<CreateCampaign />} />
             <Route path="/campaigns/:id" element={<CampaignDetail />} />
             <Route path="/campaigns/:id/edit" element={<CreateCampaign />} />
-            <Route path="/briefs" element={<BriefsList />} />
+            <Route path="/briefs" element={<React.Suspense fallback={<div>Loading...</div>}>
+              {React.createElement(React.lazy(() => import('../src/pages/MinimalBriefsList')))}
+            </React.Suspense>} />
             <Route path="/briefs/:id" element={<BriefDetail />} />
             <Route path="/briefs/create" element={<CreateBrief />} />
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
             <Route path="/resources" element={<ResourceManagement />} />
             <Route path="/resource-dashboard" element={<ResourceDashboard />} />
-            <Route path="/tradeshows" element={<TradeshowsList />} />
+            <Route path="/brands" element={<SimpleBrands />} />
+            <Route path="/brands/management" element={<BrandsManagement />} />
+            <Route path="/brands/diagnostics" element={<BrandsDiagnosticsSimple />} />
+            <Route path="/brands/test" element={<MinimalBrandsTest />} />
+            <Route path="/diagnostics" element={<DiagnosticsPage />} />
             <Route path="/users" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <UserManagement />

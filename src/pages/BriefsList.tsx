@@ -13,11 +13,13 @@ const BriefsList = () => {
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [brands, setBrands] = useState<Array<{ id: string; name: string; }>>([]);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [resourceFilter, setResourceFilter] = useState<string | null>(null);
+  const [brandFilter, setBrandFilter] = useState<string | null>(null);
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
@@ -28,10 +30,10 @@ const BriefsList = () => {
         setLoading(true);
         setError(null);
         
-        // Fetch briefs with explicit field selection
+        // Fetch briefs with * to get all columns
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('id, title, status, start_date, due_date, channel, resource_id, created_by')
+          .select('*')
           .order('due_date', { ascending: true });
         
         if (briefsError) {
@@ -72,6 +74,18 @@ const BriefsList = () => {
           return;
         }
         
+        // Fetch brands for filtering
+        const { data: brandsData, error: brandsError } = await supabase
+          .from('brands')
+          .select('id, name')
+          .order('name');
+          
+        if (brandsError) {
+          console.error('Error fetching brands:', brandsError);
+          setError(`Failed to load brands: ${brandsError.message}`);
+          return;
+        }
+        
         if (!briefsData) {
           setError('No brief data returned from the server');
           return;
@@ -82,11 +96,13 @@ const BriefsList = () => {
           return;
         }
         
-        // Set state with type safety
+        // Set state with type safety, adding missing fields with defaults
         setBriefs(briefsData.map(brief => ({
           ...brief,
-          priority: undefined, // Priority no longer in schema
-          // Add other missing fields to match Brief type
+          priority: 'medium', // Default priority
+          resource_id: null, // Default to no resource
+          campaign_id: null, // Default to no campaign
+          brand_id: brands.length > 0 ? brands[0].id : '', // Use first brand as fallback
           resource: null,
           description: brief.description || undefined,
           specifications: brief.specifications || undefined,
@@ -98,6 +114,7 @@ const BriefsList = () => {
         
         setResources(resourcesData);
         setUsers(usersData as User[]);
+        setBrands(brandsData || []);
         setMediaTypes(uniqueMediaTypes);
       } catch (error: any) {
         console.error('Error fetching briefs data:', error);
@@ -119,6 +136,11 @@ const BriefsList = () => {
   const getUserName = (userId: string) => {
     const user = users.find(u => u.id === userId);
     return user ? user.name : 'Unknown';
+  };
+  
+  const getBrandName = (brandId: string) => {
+    const brand = brands.find(b => b.id === brandId);
+    return brand ? brand.name : 'Unknown';
   };
 
   const exportToCsv = () => {
@@ -164,6 +186,7 @@ const BriefsList = () => {
     setStatusFilter(null);
     setPriorityFilter(null);
     setResourceFilter(null);
+    setBrandFilter(null);
     setMediaTypeFilter(null);
   };
   
@@ -198,6 +221,11 @@ const BriefsList = () => {
       } else if (brief.resource_id !== resourceFilter) {
         return false;
       }
+    }
+    
+    // Apply brand filter (check if brand_id exists in the brief)
+    if (brandFilter && brief.brand_id && brief.brand_id !== brandFilter) {
+      return false;
     }
     
     // Apply media type filter
@@ -339,6 +367,26 @@ const BriefsList = () => {
                 </select>
               </div>
               
+              {/* Brand filter */}
+              <div>
+                <label htmlFor="brand-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                  Brand
+                </label>
+                <select
+                  id="brand-filter"
+                  value={brandFilter || ''}
+                  onChange={(e) => setBrandFilter(e.target.value || null)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                >
+                  <option value="">All Brands</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               {/* Media Type filter */}
               <div>
                 <label htmlFor="media-type-filter" className="block text-sm font-medium text-gray-700 mb-1">
@@ -392,6 +440,9 @@ const BriefsList = () => {
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
+              <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Brand
+              </th>
               {/* Priority column removed as field no longer exists */}
               <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Resource
@@ -425,6 +476,9 @@ const BriefsList = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {getBrandName(brief.brand_id)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {getResourceName(brief.resource_id)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -437,7 +491,7 @@ const BriefsList = () => {
               ))
             ) : (
               <tr>
-                <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
                   No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
                     <button 
                       onClick={resetFilters}

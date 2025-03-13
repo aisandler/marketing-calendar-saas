@@ -9,6 +9,67 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      brands: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+      },
+      campaigns: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          brand_id: string
+          start_date: string
+          end_date: string
+          status: 'draft' | 'active' | 'complete' | 'cancelled'
+          created_by: string
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          brand_id: string
+          start_date: string
+          end_date: string
+          status?: 'draft' | 'active' | 'complete' | 'cancelled'
+          created_by: string
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          brand_id?: string
+          start_date?: string
+          end_date?: string
+          status?: 'draft' | 'active' | 'complete' | 'cancelled'
+          created_by?: string
+          created_at?: string
+          updated_at?: string | null
+        }
+      },
       users: {
         Row: {
           id: string
@@ -40,19 +101,34 @@ export interface Database {
           id: string
           name: string
           type: 'internal' | 'agency' | 'freelancer'
+          capacity_hours: number | null
+          hourly_rate: number | null
+          media_type: string | null
+          team_id: string | null
           created_at: string
+          updated_at: string | null
         }
         Insert: {
           id?: string
           name: string
           type: 'internal' | 'agency' | 'freelancer'
+          capacity_hours?: number | null
+          hourly_rate?: number | null
+          media_type?: string | null
+          team_id?: string | null
           created_at?: string
+          updated_at?: string | null
         }
         Update: {
           id?: string
           name?: string
           type?: 'internal' | 'agency' | 'freelancer'
+          capacity_hours?: number | null
+          hourly_rate?: number | null
+          media_type?: string | null
+          team_id?: string | null
           created_at?: string
+          updated_at?: string | null
         }
       }
       briefs: {
@@ -62,6 +138,8 @@ export interface Database {
           channel: string
           start_date: string
           due_date: string
+          campaign_id: string | null
+          brand_id: string
           resource_id: string | null
           approver_id: string | null
           status: 'draft' | 'pending_approval' | 'approved' | 'in_progress' | 'review' | 'complete' | 'cancelled'
@@ -80,6 +158,8 @@ export interface Database {
           channel: string
           start_date: string
           due_date: string
+          campaign_id?: string | null
+          brand_id: string
           resource_id?: string | null
           approver_id?: string | null
           status?: 'draft' | 'pending_approval' | 'approved' | 'in_progress' | 'review' | 'complete' | 'cancelled'
@@ -98,6 +178,8 @@ export interface Database {
           channel?: string
           start_date?: string
           due_date?: string
+          campaign_id?: string | null
+          brand_id?: string
           resource_id?: string | null
           approver_id?: string | null
           status?: 'draft' | 'pending_approval' | 'approved' | 'in_progress' | 'review' | 'complete' | 'cancelled'
@@ -161,6 +243,29 @@ export interface Database {
           previous_state?: Json
           new_state?: Json
           created_at?: string
+        }
+      },
+      teams: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_at?: string
+          updated_at?: string | null
         }
       }
     }

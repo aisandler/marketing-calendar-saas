@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAuth } from '../../contexts/AuthContext';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 
 const loginSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address' }),
@@ -15,10 +16,43 @@ const loginSchema = z.object({
 type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login = () => {
-  const { signIn } = useAuth();
+  const { signIn, refreshSession } = useAuth();
   const navigate = useNavigate();
-  const [authError, setAuthError] = React.useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const location = useLocation();
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sessionIssue, setSessionIssue] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  
+  // Check for existing user first
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          console.log('Login: Found existing session, redirecting to dashboard');
+          navigate('/dashboard');
+        }
+      } catch (error) {
+        console.error('Login: Error checking session:', error);
+      }
+    };
+    
+    checkExistingSession();
+  }, [navigate]);
+  
+  // Check if redirected from a protected route
+  useEffect(() => {
+    const from = location.state?.from;
+    const sessionKey = 'marketing-cal-auth';
+    const hasLocalSession = localStorage.getItem(sessionKey) !== null;
+    
+    // Only show session issue warning if redirected from a protected route AND has local session
+    if (from && hasLocalSession) {
+      console.log('Login: Detected potential session issue, redirected from:', from);
+      setSessionIssue(true);
+    }
+  }, [location.state]);
 
   const {
     register,
@@ -37,7 +71,8 @@ const Login = () => {
       if (error) {
         setAuthError(error.message || 'Invalid login credentials. Please try again.');
       } else {
-        navigate('/dashboard');
+        const redirectTo = location.state?.from || '/dashboard';
+        navigate(redirectTo);
       }
     } catch (err: any) {
       setAuthError(err.message || 'An unexpected error occurred. Please try again.');
@@ -45,9 +80,74 @@ const Login = () => {
       setIsSubmitting(false);
     }
   };
+  
+  const handleSessionRefresh = async () => {
+    try {
+      setAuthError(null);
+      setIsRefreshing(true);
+      
+      // First try to refresh directly through Supabase
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        console.error('Login: Error refreshing session through Supabase:', error);
+        // Fall back to our custom refresh method
+        await refreshSession();
+      } else if (data.session) {
+        console.log('Login: Session refreshed successfully');
+        // Redirect back to original location if available
+        const redirectTo = location.state?.from || '/dashboard';
+        navigate(redirectTo);
+        return;
+      }
+      
+      // If we got here, the refresh didn't redirect, check again
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        console.log('Login: User authenticated after refresh');
+        const redirectTo = location.state?.from || '/dashboard';
+        navigate(redirectTo);
+      } else {
+        setAuthError('Unable to restore your session. Please sign in again.');
+        setSessionIssue(false);
+      }
+    } catch (err: any) {
+      console.error('Login: Error during session refresh:', err);
+      setAuthError('Failed to restore your session. Please sign in again.');
+      setSessionIssue(false);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   return (
     <div>
+      {sessionIssue && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 text-yellow-800 rounded-md p-4">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3">
+              <h3 className="text-sm font-medium">Session Issue Detected</h3>
+              <div className="mt-2 text-sm">
+                <p>Your login session may have expired or become invalid.</p>
+                <button
+                  type="button"
+                  onClick={handleSessionRefresh}
+                  disabled={isRefreshing}
+                  className="mt-2 inline-flex items-center px-3 py-1.5 border border-yellow-300 text-xs font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500"
+                >
+                  {isRefreshing ? 'Refreshing Session...' : 'Refresh Session'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {authError && (
           <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">

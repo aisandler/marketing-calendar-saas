@@ -15,6 +15,8 @@ const briefSchema = z.object({
   channel: z.string().min(1, 'Channel is required'),
   start_date: z.string().min(1, 'Start date is required'),
   due_date: z.string().min(1, 'Due date is required'),
+  brand_id: z.string().min(1, 'Brand is required'),
+  campaign_id: z.string().nullable(),
   resource_id: z.string().nullable(),
   approver_id: z.string().nullable(),
   status: z.enum([
@@ -46,6 +48,8 @@ const CreateBrief = () => {
   const [error, setError] = useState<string | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [approvers, setApprovers] = useState<User[]>([]);
+  const [brands, setBrands] = useState<Array<{ id: string; name: string; }>>([]);
+  const [campaigns, setCampaigns] = useState<Array<{ id: string; name: string; brand_id: string; }>>([]);
   const [resourceConflict, setResourceConflict] = useState(false);
   const [tradeshowConflict, setTradeshowConflict] = useState(false);
   const [existingBrief, setExistingBrief] = useState<Brief | null>(null);
@@ -70,6 +74,8 @@ const CreateBrief = () => {
       channel: '',
       start_date: new Date().toISOString().split('T')[0],
       due_date: '',
+      brand_id: '',
+      campaign_id: null,
       resource_id: null,
       approver_id: null,
       status: 'draft',
@@ -107,8 +113,26 @@ const CreateBrief = () => {
         
         if (approversError) throw approversError;
         
+        // Fetch brands
+        const { data: brandsData, error: brandsError } = await supabase
+          .from('brands')
+          .select('id, name')
+          .order('name');
+          
+        if (brandsError) throw brandsError;
+        
+        // Fetch campaigns
+        const { data: campaignsData, error: campaignsError } = await supabase
+          .from('campaigns')
+          .select('id, name, brand_id')
+          .order('name');
+          
+        if (campaignsError) throw campaignsError;
+        
         setResources(resourcesData as Resource[]);
         setApprovers(approversData as User[]);
+        setBrands(brandsData || []);
+        setCampaigns(campaignsData || []);
 
         // If in edit mode, fetch the existing brief
         if (isEditMode && id) {
@@ -355,6 +379,51 @@ const CreateBrief = () => {
                 {errors.channel && (
                   <p className="mt-1 text-sm text-red-600">{errors.channel.message}</p>
                 )}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="brand_id" className="block text-sm font-medium text-gray-700 mb-1">
+                  Brand *
+                </label>
+                <select
+                  id="brand_id"
+                  {...register('brand_id')}
+                  className={`block w-full rounded-md ${
+                    errors.brand_id ? 'border-red-300' : 'border-gray-300'
+                  } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm`}
+                >
+                  <option value="">Select Brand</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id}>
+                      {brand.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.brand_id && (
+                  <p className="mt-1 text-sm text-red-600">{errors.brand_id.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <label htmlFor="campaign_id" className="block text-sm font-medium text-gray-700 mb-1">
+                  Campaign
+                </label>
+                <select
+                  id="campaign_id"
+                  {...register('campaign_id')}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                >
+                  <option value="">No Campaign</option>
+                  {campaigns
+                    .filter(campaign => !watch('brand_id') || campaign.brand_id === watch('brand_id'))
+                    .map((campaign) => (
+                      <option key={campaign.id} value={campaign.id}>
+                        {campaign.name}
+                      </option>
+                    ))}
+                </select>
               </div>
             </div>
             

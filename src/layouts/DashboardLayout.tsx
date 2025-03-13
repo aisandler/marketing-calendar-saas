@@ -37,11 +37,10 @@ const DashboardLayout: React.FC = () => {
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Campaigns', href: '/campaigns', icon: Folders },
-    { name: 'Calendar', href: '/calendar', icon: Calendar },
     { name: 'Briefs', href: '/briefs', icon: FileText },
+    { name: 'Brands', href: '/brands', icon: Briefcase },
     { name: 'Resources', href: '/resources', icon: Users },
     { name: 'Resource Dashboard', href: '/resource-dashboard', icon: PieChart },
-    { name: 'Tradeshows', href: '/tradeshows', icon: MapPin },
   ];
 
   // Only show user management for admins
