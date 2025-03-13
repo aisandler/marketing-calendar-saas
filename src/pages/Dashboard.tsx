@@ -1,207 +1,311 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
+import { Card, Title, Text, BarChart, DonutChart } from '@tremor/react';
 import { formatDate } from '../lib/utils';
-import { Button } from '../components/ui/Button';
-import { Calendar, FileText, Clock, AlertTriangle, Plus } from 'lucide-react';
-
-interface Brief {
-  id: string;
-  title: string;
-  status: string;
-  start_date: string;
-  due_date: string;
-}
+import { Calendar as CalendarIcon, Users, FileText, Briefcase, AlertCircle, Clock } from 'lucide-react';
+import { startOfWeek, endOfWeek, format } from 'date-fns';
 
 interface DashboardStats {
   totalBriefs: number;
-  pendingApproval: number;
-  inProgress: number;
-  resourceConflicts: number;
+  briefsByStatus: { [key: string]: number };
+  resourceCapacity: Array<{
+    name: string;
+    assigned: number;
+    capacity: number;
+  }>;
+  upcomingDeadlines: Array<{
+    id: string;
+    title: string;
+    due_date: string;
+    status: string;
+    brand?: { name: string };
+  }>;
+  briefsByBrand: Array<{
+    brand: string;
+    count: number;
+  }>;
+  pendingApprovals: number;
 }
 
-const Dashboard: React.FC = () => {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [briefs, setBriefs] = useState<Brief[]>([]);
+const Dashboard = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalBriefs: 0,
-    pendingApproval: 0,
-    inProgress: 0,
-    resourceConflicts: 0
+    briefsByStatus: {},
+    resourceCapacity: [],
+    upcomingDeadlines: [],
+    briefsByBrand: [],
+    pendingApprovals: 0
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        setError(null);
-
-        // Fetch briefs
-        const { data: briefsData, error: briefsError } = await supabase
+        
+        // Fetch briefs with related data
+        const { data: briefs, error: briefsError } = await supabase
           .from('briefs')
-          .select('*')
+          .select(`
+            *,
+            brand:brands(name),
+            resource:resources(name)
+          `)
           .order('due_date', { ascending: true });
 
         if (briefsError) throw briefsError;
 
-        const typedBriefs = (briefsData || []) as Brief[];
-        setBriefs(typedBriefs);
+        // Fetch resources with their capacities
+        const { data: resources, error: resourcesError } = await supabase
+          .from('resources')
+          .select('*');
 
-        // Calculate stats
-        setStats({
-          totalBriefs: typedBriefs.length,
-          pendingApproval: typedBriefs.filter(b => b.status === 'pending_approval').length,
-          inProgress: typedBriefs.filter(b => b.status === 'in_progress').length,
-          resourceConflicts: 0 // This can be updated when resource conflict logic is implemented
+        if (resourcesError) throw resourcesError;
+
+        // Calculate statistics
+        const statusCounts: { [key: string]: number } = {};
+        const brandCounts: { [key: string]: number } = {};
+        let pendingCount = 0;
+        
+        briefs?.forEach(brief => {
+          // Count by status
+          statusCounts[brief.status] = (statusCounts[brief.status] || 0) + 1;
+          if (brief.status === 'pending_approval') {
+            pendingCount++;
+          }
+          
+          // Count by brand
+          const brandName = brief.brand?.name || 'Unassigned';
+          brandCounts[brandName] = (brandCounts[brandName] || 0) + 1;
         });
 
-      } catch (err) {
-        console.error('Error loading dashboard:', err);
-        setError('Failed to load dashboard data');
+        // Calculate resource capacity
+        const resourceCapacity = resources?.map(resource => {
+          const assignedBriefs = briefs?.filter(b => b.resource_id === resource.id) || [];
+          return {
+            name: resource.name,
+            assigned: assignedBriefs.length,
+            capacity: resource.max_capacity || 5 // Default capacity if not set
+          };
+        });
+
+        // Get upcoming deadlines (next 7 days)
+        const now = new Date();
+        const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const upcomingDeadlines = briefs?.filter(brief => {
+          const dueDate = new Date(brief.due_date);
+          return dueDate >= now && dueDate <= nextWeek;
+        }) || [];
+
+        // Format brand data for chart
+        const briefsByBrand = Object.entries(brandCounts).map(([brand, count]) => ({
+          brand,
+          count
+        }));
+
+        setStats({
+          totalBriefs: briefs?.length || 0,
+          briefsByStatus: statusCounts,
+          resourceCapacity,
+          upcomingDeadlines,
+          briefsByBrand,
+          pendingApprovals: pendingCount
+        });
+
+      } catch (error: any) {
+        console.error('Error fetching dashboard data:', error);
+        setError(error.message);
       } finally {
         setLoading(false);
       }
     };
 
-    loadDashboard();
-  }, [user?.id]);
-
-  // Calculate upcoming deadlines (next 7 days)
-  const upcomingDeadlines = briefs.filter(brief => {
-    const dueDate = new Date(brief.due_date);
-    const today = new Date();
-    const diffTime = dueDate.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays <= 7 && diffDays >= 0;
-  });
+    fetchDashboardData();
+  }, []);
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+        <strong className="font-bold">Error: </strong>
+        <span className="block sm:inline">{error}</span>
+      </div>
+    );
+  }
+
+  const currentWeek = `${format(startOfWeek(new Date()), 'MMM d')} - ${format(endOfWeek(new Date()), 'MMM d, yyyy')}`;
+
   return (
-    <div className="space-y-6 p-6">
-      {/* Welcome banner */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800">Welcome back, {user?.email}</h2>
-            <p className="text-gray-600 mt-1">Here's what's happening with your marketing projects today.</p>
+    <div className="space-y-6 p-6 bg-gradient-to-br from-gray-50 to-white min-h-screen">
+      {/* KPI Cards Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <Card 
+          className="p-6 transform transition-all hover:scale-105 cursor-pointer"
+          decoration="top"
+          decorationColor="indigo"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg">
+              <FileText className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500">Total Briefs</Text>
+              <Title className="text-2xl font-bold text-indigo-600">{stats.totalBriefs}</Title>
+            </div>
           </div>
-          <div>
-            <Link to="/briefs/create">
-              <Button className="inline-flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                New Brief
-              </Button>
-            </Link>
+        </Card>
+
+        <Card 
+          className="p-6 transform transition-all hover:scale-105 cursor-pointer"
+          decoration="top"
+          decorationColor="amber"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-amber-500 to-yellow-600 rounded-lg">
+              <Clock className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500">Pending Approval</Text>
+              <Title className="text-2xl font-bold text-amber-600">{stats.pendingApprovals}</Title>
+            </div>
           </div>
-        </div>
+        </Card>
+
+        <Card 
+          className="p-6 transform transition-all hover:scale-105 cursor-pointer"
+          decoration="top"
+          decorationColor="emerald"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg">
+              <CalendarIcon className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500">Current Week</Text>
+              <Title className="text-lg font-bold text-emerald-600">{currentWeek}</Title>
+            </div>
+          </div>
+        </Card>
+
+        <Card 
+          className="p-6 transform transition-all hover:scale-105 cursor-pointer"
+          decoration="top"
+          decorationColor="rose"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-rose-500 to-pink-600 rounded-lg">
+              <AlertCircle className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500">Upcoming Deadlines</Text>
+              <Title className="text-2xl font-bold text-rose-600">{stats.upcomingDeadlines.length}</Title>
+            </div>
+          </div>
+        </Card>
+
+        <Card 
+          className="p-6 transform transition-all hover:scale-105 cursor-pointer"
+          decoration="top"
+          decorationColor="violet"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-600 rounded-lg">
+              <Users className="h-8 w-8 text-white" />
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500">Active Resources</Text>
+              <Title className="text-2xl font-bold text-violet-600">{stats.resourceCapacity.length}</Title>
+            </div>
+          </div>
+        </Card>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-blue-100 rounded-md p-3">
-              <FileText className="h-6 w-6 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">Total Briefs</h3>
-              <p className="text-3xl font-semibold text-gray-900">{stats.totalBriefs}</p>
-            </div>
-          </div>
-        </div>
+      {/* Charts Row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Resource Capacity Chart */}
+        <Card 
+          className="transform transition-all hover:scale-[1.02]"
+          decoration="left"
+          decorationColor="blue"
+        >
+          <Title className="text-lg font-bold mb-4">Resource Capacity</Title>
+          <BarChart
+            className="mt-4 h-72"
+            data={stats.resourceCapacity}
+            index="name"
+            categories={["assigned", "capacity"]}
+            colors={["blue", "indigo"]}
+            valueFormatter={(value: number) => `${value} briefs`}
+            showLegend={true}
+            showGridLines={false}
+            startEndOnly={true}
+          />
+        </Card>
 
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-yellow-100 rounded-md p-3">
-              <Clock className="h-6 w-6 text-yellow-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">Pending Approval</h3>
-              <p className="text-3xl font-semibold text-gray-900">{stats.pendingApproval}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-green-100 rounded-md p-3">
-              <Calendar className="h-6 w-6 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">In Progress</h3>
-              <p className="text-3xl font-semibold text-gray-900">{stats.inProgress}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0 bg-red-100 rounded-md p-3">
-              <AlertTriangle className="h-6 w-6 text-red-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-sm font-medium text-gray-500">Resource Conflicts</h3>
-              <p className="text-3xl font-semibold text-gray-900">{stats.resourceConflicts}</p>
-            </div>
-          </div>
-        </div>
+        {/* Briefs by Brand */}
+        <Card 
+          className="transform transition-all hover:scale-[1.02]"
+          decoration="left"
+          decorationColor="purple"
+        >
+          <Title className="text-lg font-bold mb-4">Briefs by Brand</Title>
+          <DonutChart
+            className="mt-4 h-72"
+            data={stats.briefsByBrand}
+            category="count"
+            index="brand"
+            colors={["indigo", "violet", "purple", "fuchsia", "pink"]}
+            valueFormatter={(value: number) => `${value} briefs`}
+            showLabel={true}
+          />
+        </Card>
       </div>
 
-      {/* Upcoming deadlines */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Upcoming Deadlines (Next 7 Days)</h3>
-        {upcomingDeadlines.length > 0 ? (
-          <div className="divide-y divide-gray-200">
-            {upcomingDeadlines.map((brief) => (
-              <div key={brief.id} className="py-4 flex items-center">
-                <div className="min-w-0 flex-1">
-                  <Link to={`/briefs/${brief.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-800">
-                    {brief.title}
+      {/* Upcoming Deadlines */}
+      <Card 
+        className="transform transition-all hover:scale-[1.02]"
+        decoration="bottom"
+        decorationColor="rose"
+      >
+        <Title className="text-lg font-bold mb-4">Upcoming Deadlines</Title>
+        <div className="mt-4">
+          {stats.upcomingDeadlines.length > 0 ? (
+            <div className="divide-y divide-gray-200">
+              {stats.upcomingDeadlines.map((brief) => (
+                <div key={brief.id} className="py-3">
+                  <Link 
+                    to={`/briefs/${brief.id}`} 
+                    className="flex items-center justify-between hover:bg-gradient-to-r hover:from-rose-50 hover:to-transparent p-3 rounded-lg transition-all"
+                  >
+                    <div>
+                      <Text className="font-medium text-gray-900">{brief.title}</Text>
+                      <Text className="text-gray-500">{brief.brand?.name}</Text>
+                    </div>
+                    <div className="text-right">
+                      <Text className="text-rose-600 font-medium">{formatDate(brief.due_date)}</Text>
+                      <Text className="text-gray-500">{brief.status.replace('_', ' ')}</Text>
+                    </div>
                   </Link>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Due: {formatDate(brief.due_date)}
-                  </p>
                 </div>
-                <div className="ml-4 flex-shrink-0">
-                  <span className={`px-2 py-1 text-xs rounded-full ${
-                    brief.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
-                    brief.status === 'in_progress' ? 'bg-green-100 text-green-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {brief.status.replace('_', ' ')}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-gray-500 text-center py-4">No deadlines in the next 7 days</p>
-        )}
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 rounded-md p-4">
-          <p>{error}</p>
-          <button 
-            onClick={() => window.location.reload()}
-            className="mt-2 text-sm text-red-600 hover:text-red-800"
-          >
-            Retry loading
-          </button>
+              ))}
+            </div>
+          ) : (
+            <Text className="text-gray-500 text-center py-8">No upcoming deadlines</Text>
+          )}
         </div>
-      )}
+      </Card>
     </div>
   );
 };
 
 export default Dashboard;
+
