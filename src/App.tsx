@@ -48,9 +48,7 @@ function App() {
             <Route path="/campaigns/new" element={<CreateCampaign />} />
             <Route path="/campaigns/:id" element={<CampaignDetail />} />
             <Route path="/campaigns/:id/edit" element={<CreateCampaign />} />
-            <Route path="/briefs" element={<React.Suspense fallback={<div>Loading...</div>}>
-              {React.createElement(React.lazy(() => import('../src/pages/MinimalBriefsList')))}
-            </React.Suspense>} />
+            <Route path="/briefs" element={<BriefsList />} />
             <Route path="/briefs/:id" element={<BriefDetail />} />
             <Route path="/briefs/create" element={<CreateBrief />} />
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
