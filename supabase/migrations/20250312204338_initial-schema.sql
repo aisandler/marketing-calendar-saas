@@ -125,13 +125,11 @@ CREATE TRIGGER update_briefs_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Enable Row Level Security
-ALTER TABLE public.brands ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.resources ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.briefs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.brief_history ENABLE ROW LEVEL SECURITY;
+-- Disable Row Level Security temporarily for data migration
+ALTER TABLE public.brands DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.resources DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaigns DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.briefs DISABLE ROW LEVEL SECURITY;
 
 -- Create policies
 -- Users table policies

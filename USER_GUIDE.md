@@ -1,6 +1,6 @@
 # User Guide: Marketing Calendar SaaS
 
-Welcome to the Marketing Calendar SaaS application! This guide will help you navigate and use the application effectively to manage your marketing activities, briefs, resources, and tradeshows.
+Welcome to the Marketing Calendar SaaS application! This guide will help you navigate and use the application effectively to manage your marketing activities, briefs, resources, and campaigns.
 
 ![Marketing Calendar](https://i.imgur.com/JKgXPpL.png)
 
@@ -13,6 +13,10 @@ Welcome to the Marketing Calendar SaaS application! This guide will help you nav
 - [Dashboard](#dashboard)
   - [Understanding the Dashboard](#understanding-the-dashboard)
   - [Using Dashboard Widgets](#using-dashboard-widgets)
+- [Campaigns](#campaigns)
+  - [Viewing Campaigns](#viewing-campaigns)
+  - [Creating a Campaign](#creating-a-campaign)
+  - [Managing Campaigns](#managing-campaigns)
 - [Marketing Briefs](#marketing-briefs)
   - [Viewing Briefs](#viewing-briefs)
   - [Creating a New Brief](#creating-a-new-brief)
@@ -21,16 +25,19 @@ Welcome to the Marketing Calendar SaaS application! This guide will help you nav
   - [Brief Status Workflow](#brief-status-workflow)
 - [Calendar View](#calendar-view)
   - [Navigating the Calendar](#navigating-the-calendar)
-  - [Understanding the Gantt Chart](#understanding-the-gantt-chart)
+  - [Understanding the Calendar](#understanding-the-calendar)
   - [Adjusting Timelines](#adjusting-timelines)
 - [Resources Management](#resources-management)
   - [Viewing Resources](#viewing-resources)
   - [Adding a Resource](#adding-a-resource)
-  - [Assigning Resources to Briefs](#assigning-resources-to-briefs)
-- [Tradeshows](#tradeshows)
-  - [Viewing Tradeshows](#viewing-tradeshows)
-  - [Adding a Tradeshow](#adding-a-tradeshow)
-  - [Managing Tradeshow Details](#managing-tradeshow-details)
+  - [Managing Teams](#managing-teams)
+  - [Media Type Utilization](#media-type-utilization)
+  - [Team Utilization](#team-utilization)
+  - [Resource Forecasting](#resource-forecasting)
+  - [Cost Tracking](#cost-tracking)
+- [Brand Management](#brand-management)
+  - [Viewing Brands](#viewing-brands)
+  - [Managing Brands](#managing-brands)
 - [User Management](#user-management)
   - [Understanding User Roles](#understanding-user-roles)
   - [Managing Users (Admin Only)](#managing-users-admin-only)
@@ -43,12 +50,6 @@ Welcome to the Marketing Calendar SaaS application! This guide will help you nav
 - [Troubleshooting](#troubleshooting)
   - [Common Issues](#common-issues)
   - [Getting Help](#getting-help)
-- [User Roles and Permissions](#user-roles-and-permissions)
-- [Managing Campaigns](#managing-campaigns)
-- [Working with Briefs](#working-with-briefs)
-- [Resource Management](#resource-management)
-- [Brand Management](#brand-management)
-- [Reports and Analytics](#reports-and-analytics)
 
 ## Getting Started
 
@@ -79,6 +80,13 @@ Once you have an account:
 After logging in, you'll see the main dashboard. The application has a consistent layout:
 
 - **Left Sidebar**: Main navigation menu with links to different sections
+  - Dashboard
+  - Campaigns
+  - Briefs
+  - Brands
+  - Resources
+  - Resource Dashboard
+  - Users (Admin only)
 - **Top Bar**: Shows your profile, notifications, and quick actions
 - **Main Content Area**: Displays the content of the current section
 - **Action Buttons**: Usually located at the top-right of the content area
@@ -89,15 +97,13 @@ After logging in, you'll see the main dashboard. The application has a consisten
 
 The dashboard provides an overview of your marketing activities:
 
-![Dashboard Overview](https://i.imgur.com/JKgXPpL.png)
-
 Key elements include:
 
-1. **Upcoming Deadlines**: Shows briefs with approaching due dates
-2. **Brief Status Summary**: Visual breakdown of briefs by status
-3. **Recent Activity**: Latest changes to briefs and resources
-4. **Upcoming Tradeshows**: List of upcoming tradeshow events
-5. **Resource Allocation**: Overview of resource assignments
+1. **Total Briefs**: Shows the total number of briefs in the system
+2. **Pending Approvals**: Number of briefs awaiting approval
+3. **Current Week**: Shows the current week's date range
+4. **Upcoming Deadlines**: Number of briefs with approaching due dates
+5. **Active Resources**: Total number of resources in the system
 
 ### Using Dashboard Widgets
 
@@ -107,6 +113,47 @@ Each widget on the dashboard provides quick insights:
 - **Hover over chart segments** in the Brief Status Summary to see the count and percentage
 - **Click "View All"** on any widget to go to the full list view
 - **Use the date filter** at the top to adjust the time range for the dashboard data
+
+## Campaigns
+
+### Viewing Campaigns
+
+To view all campaigns:
+
+1. Click "Campaigns" in the left sidebar
+2. You'll see a list of all campaigns with key information:
+   - Name
+   - Brand
+   - Start Date
+   - End Date
+   - Status
+
+You can:
+- **Sort** the list by clicking on column headers
+- **Filter** using the filter options at the top
+- **Search** using the search box
+- **Click on any campaign** to view its details
+
+### Creating a Campaign
+
+To create a new campaign:
+
+1. From the Campaigns list, click the "+ New Campaign" button
+2. Fill in the required information:
+   - **Name**: A clear, descriptive name for the campaign
+   - **Brand**: Select the associated brand
+   - **Start Date**: When the campaign begins
+   - **End Date**: When the campaign ends
+   - **Description**: Detailed information about the campaign
+3. Click "Create Campaign"
+
+### Managing Campaigns
+
+Campaigns can be in one of four states:
+- **Draft**: Initial creation, still being defined
+- **Active**: Campaign is currently running
+- **Complete**: Campaign has finished
+- **Cancelled**: Campaign has been cancelled
 
 ## Marketing Briefs
 
@@ -120,7 +167,8 @@ To view all marketing briefs:
    - Status
    - Due date
    - Assigned resource
-   - Priority
+   - Channel
+   - Brand
 
 You can:
 - **Sort** the list by clicking on column headers
@@ -138,7 +186,7 @@ To create a new marketing brief:
    - **Channel**: The marketing channel (e.g., Social Media, Email, Print)
    - **Start Date**: When work should begin
    - **Due Date**: When the deliverable is needed
-   - **Priority**: The importance level (Low, Medium, High, Urgent)
+   - **Brand**: Select the associated brand
    - **Status**: Initial status (usually "Draft")
    - **Description**: Detailed information about the brief
 3. Optional fields:
@@ -190,33 +238,33 @@ Each status change is recorded in the brief history.
 
 ### Navigating the Calendar
 
-The Calendar View provides a visual timeline of all marketing briefs:
+The Calendar View provides a visual timeline of all marketing briefs and campaigns:
 
 1. Click "Calendar" in the left sidebar
-2. You'll see a Gantt chart showing all briefs as timeline bars
+2. You'll see a calendar showing all briefs and campaigns as events
 
 You can:
-- **Zoom in/out** using the controls at the top
-- **Scroll** horizontally to see different time periods
-- **Click on a brief bar** to see a quick summary
-- **Double-click** to go to the brief details
+- **Switch views** between month and week views
+- **Click on an event** to see a quick summary
+- **Double-click** to go to the event details
+- **Drag events** to adjust dates (if you have permission)
 
-### Understanding the Gantt Chart
+### Understanding the Calendar
 
-The Gantt chart uses color coding and visual elements:
+The calendar uses color coding and visual elements:
 
-- **Colors** represent different statuses (e.g., green for completed, blue for in progress)
-- **Bar length** shows the duration from start date to due date
-- **Milestones** appear as diamond shapes
-- **Dependencies** (if configured) show as connecting lines
+- **Briefs** appear with different colors based on their status
+- **Campaigns** appear in blue
+- **Event length** shows the duration from start date to due date
+- **Icons** indicate the type of event (📝 for briefs, 🎯 for campaigns)
 
 ### Adjusting Timelines
 
 To adjust a brief's timeline directly from the calendar:
 
-1. Click and hold on a brief bar
+1. Click and hold on a brief event
 2. Drag to move the entire timeline (both start and due dates)
-3. Or, drag the edge of a bar to change just the start or due date
+3. Or, drag the edge of an event to change just the start or due date
 4. A confirmation dialog will appear to confirm the change
 
 Note: Timeline adjustments are subject to your permission level.
@@ -238,18 +286,6 @@ To view all resources:
    - Availability status
 
 The resource list will show overallocated resources in red.
-
-### Resource Dashboard
-
-For advanced resource management:
-
-1. Click "Resource Dashboard" in the left sidebar
-2. This dashboard provides:
-   - Overview of all resource utilization
-   - Cost reporting by campaign
-   - Media type utilization analysis
-   - Team-based utilization grouping
-   - Resource forecasting
 
 ### Adding a Resource
 
@@ -309,62 +345,43 @@ To view and plan future resource allocation:
    - Filtering by resource type and media type
    - Color-coded utilization indicators
 
-### Assigning Resources to Briefs
-
-To assign a resource to a brief:
-
-1. Navigate to the brief details page
-2. Click "Edit"
-3. Use the Resource dropdown to select a resource
-4. Specify estimated hours for capacity planning
-5. The system will warn you if the resource is already overallocated
-6. Click "Save Changes"
-
 ### Cost Tracking
 
-When assigning resources to briefs, the system calculates costs:
+Monitor project costs:
 
-1. For resources with an hourly rate, costs are calculated automatically
-2. You can add additional expenses to each brief
-3. The system provides cost reporting at both brief and campaign levels
-4. Campaign detail pages show cost breakdowns by resource type
+1. Set hourly rates for resources
+2. Track estimated hours and expenses
+3. View cost breakdowns at brief and campaign levels
+4. Analyze costs by resource type
+5. Make budget-aware resourcing decisions
 
-## Tradeshows
+## Brand Management
 
-### Viewing Tradeshows
+### Viewing Brands
 
-To view all tradeshows:
+To view all brands:
 
-1. Click "Tradeshows" in the left sidebar
-2. You'll see a list of all tradeshows with information:
+1. Click "Brands" in the left sidebar
+2. You'll see a list of all brands with information:
    - Name
-   - Location
-   - Start and end dates
-   - Description
+   - Creation date
+   - Associated campaigns
+   - Associated briefs
 
-### Adding a Tradeshow
+### Managing Brands
 
-To add a new tradeshow (requires Manager or Admin role):
+To manage brands (requires Manager or Admin role):
 
-1. From the Tradeshows list, click the "+ New Tradeshow" button
+1. From the Brands list, click the "+ New Brand" button
 2. Fill in the required information:
-   - **Name**: The tradeshow name
-   - **Start Date**: When the tradeshow begins
-   - **End Date**: When the tradeshow ends
-   - **Location**: Where the tradeshow is held
-   - **Description**: Additional details
-3. Click "Create Tradeshow"
+   - **Name**: The brand name
+3. Click "Create Brand"
 
-### Managing Tradeshow Details
-
-To edit a tradeshow:
-
-1. Click on the tradeshow in the list
-2. Click the "Edit" button
-3. Make your changes
-4. Click "Save Changes"
-
-Tradeshows will appear on the Calendar View alongside briefs, making it easy to see how they align with your marketing activities.
+You can:
+- Edit existing brands
+- View brand details
+- See associated campaigns and briefs
+- Delete brands (only if they have no associated items)
 
 ## User Management
 
@@ -373,7 +390,7 @@ Tradeshows will appear on the Calendar View alongside briefs, making it easy to 
 The application has three user roles:
 
 1. **Admin**: Full access to all features, including user management
-2. **Manager**: Can create and manage briefs, resources, and tradeshows
+2. **Manager**: Can create and manage briefs, resources, and campaigns
 3. **Contributor**: Limited access to view and update assigned briefs
 
 Your role determines what actions you can perform in the system.
@@ -470,164 +487,3 @@ If you encounter issues not covered in this guide:
 This user guide covers the basic functionality of the Marketing Calendar SaaS application. As the application evolves, this guide will be updated to reflect new features and improvements.
 
 For technical issues or questions not covered here, please contact your system administrator or support team.
-
-## User Roles and Permissions
-
-## Managing Campaigns
-
-## Working with Briefs
-
-### Creating a Brief
-
-1. Navigate to the Briefs section
-2. Click "New Brief"
-3. Fill in the required information:
-   - Title
-   - Description
-   - Brand
-   - Start Date
-   - Due Date
-   - Resource Assignment
-4. Click "Create Brief"
-
-### Managing Briefs
-
-- View brief details by clicking on a brief
-- Update brief status as work progresses
-- Add comments and attachments as needed
-- Track resource allocation and hours
-
-## Resource Management
-
-The application provides comprehensive tools for managing your marketing resources, tracking capacity, and monitoring costs.
-
-### Resource Types and Allocation
-
-Resources can be:
-- **Internal**: Team members within your organization
-- **Agency**: External agency resources
-- **Freelancer**: Independent contractors
-
-Every resource can be:
-- Assigned to a team for organizational structure
-- Categorized by media type for skill-based reporting
-- Given a capacity in hours per week (default is 40)
-- Assigned an hourly rate for cost tracking
-
-### Capacity Planning
-
-The system helps you manage resource capacity:
-1. Each resource has a weekly capacity in hours
-2. Brief assignments include estimated hours
-3. The system calculates utilization as a percentage
-4. Resources are marked as overallocated when assignments exceed capacity
-5. Visual indicators show allocation status (green, blue, amber, red)
-
-### Team-Based Management
-
-Organize resources into teams:
-1. Create teams to represent departments or functional groups
-2. Assign resources to teams
-3. View utilization and allocation by team
-4. Identify overallocated teams
-5. Balance work across teams
-
-### Media Type Specialization
-
-Track resources by their specialization:
-1. Assign media types to resources (e.g., Design, Content, Social)
-2. View utilization by media type
-3. Identify capacity constraints in specific skill areas
-4. Make informed hiring or contracting decisions
-
-### Resource Forecasting
-
-Plan ahead with resource forecasting:
-1. View week-by-week allocation across resources
-2. Identify future bottlenecks before they occur
-3. Filter by resource type and media type
-4. Make proactive capacity planning decisions
-
-### Cost Tracking and Reporting
-
-Monitor project costs:
-1. Set hourly rates for resources
-2. Track estimated hours and expenses
-3. View cost breakdowns at brief and campaign levels
-4. Analyze costs by resource type
-5. Make budget-aware resourcing decisions
-
-## Brand Management
-
-## Reports and Analytics 
-
-The application provides various reports and analytics to help you make data-driven decisions.
-
-### Resource Utilization Reports
-
-Access comprehensive resource utilization reports:
-
-1. **Resource Dashboard**: Overview of all resource metrics
-   - Total capacity and allocation
-   - Utilization by resource type
-   - Most and least utilized resources
-   - Allocation warnings and alerts
-
-2. **Team Utilization**: Resource allocation by team
-   - Team-level utilization percentages
-   - Resource breakdown within teams
-   - Team capacity distribution
-   - Comparative team performance
-
-3. **Media Type Utilization**: Allocation by specialization
-   - Utilization rates by media type
-   - Resource distribution across media types
-   - Capacity constraints by skill area
-   - Media type allocation trends
-
-### Cost Reporting
-
-Track and analyze costs across your marketing activities:
-
-1. **Campaign Cost Reports**: Cost analysis at the campaign level
-   - Total campaign costs
-   - Resource costs vs. additional expenses
-   - Cost breakdown by resource type
-   - Visual cost distribution
-
-2. **Brief Cost Details**: Detailed cost tracking for individual briefs
-   - Resource hourly rates and costs
-   - Estimated hours and completion percentage
-   - Additional expenses tracking
-   - Total brief cost calculation
-
-3. **Resource Cost Analysis**: Cost reporting by resource
-   - Hourly rate comparisons
-   - Cost efficiency analysis
-   - Internal vs. external resource costs
-   - Budget vs. actual tracking
-
-### Forecasting and Planning
-
-Plan ahead with predictive reporting:
-
-1. **Resource Forecast**: Week-by-week resource allocation projection
-   - Future utilization rates
-   - Capacity bottlenecks identification
-   - Resource availability preview
-   - "What-if" planning scenarios
-
-2. **Capacity Planning**: Strategic resource planning tools
-   - Long-term capacity needs analysis
-   - Team growth recommendations
-   - Skill gap identification
-   - Overallocation risk assessment
-
-### Export Options
-
-Export data for further analysis:
-
-1. From any report view, click the "Export" button
-2. Data is formatted as CSV for easy import into spreadsheet applications
-3. Custom exports with filtered data are available
-4. Regular export scheduling can be set up by administrators
