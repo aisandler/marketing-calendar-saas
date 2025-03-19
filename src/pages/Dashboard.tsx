@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Card, Title, Text, BarChart, DonutChart } from '@tremor/react';
 import { formatDate } from '../lib/utils';
-import { Calendar as CalendarIcon, Users, FileText, Briefcase, AlertCircle, Clock } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, FileText, Briefcase, AlertCircle, Clock, TrendingUp } from 'lucide-react';
 import { startOfWeek, endOfWeek, format } from 'date-fns';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -188,6 +188,41 @@ const Dashboard = () => {
 
   const currentWeek = `${format(startOfWeek(new Date()), 'MMM d')} - ${format(endOfWeek(new Date()), 'MMM d, yyyy')}`;
 
+  // Calculate additional metrics for new KPI cards
+  const activeCampaignsCount = stats.campaigns.filter(campaign => campaign.status === 'active').length;
+  
+  // Calculate on-track vs late briefs
+  const today = new Date();
+  const onTrackBriefs = briefs.filter(brief => {
+    const dueDate = new Date(brief.due_date);
+    return dueDate >= today && ['approved', 'in_progress'].includes(brief.status);
+  }).length;
+  
+  const lateBriefs = briefs.filter(brief => {
+    const dueDate = new Date(brief.due_date);
+    return dueDate < today && !['complete', 'cancelled'].includes(brief.status);
+  }).length;
+  
+  const onTrackRatio = onTrackBriefs + lateBriefs > 0 
+    ? Math.round((onTrackBriefs / (onTrackBriefs + lateBriefs)) * 100) 
+    : 100;
+
+  // Calculate overall resource utilization
+  const totalResourceCapacity = resources.reduce((total, resource) => {
+    return total + (resource.capacity_hours || 40);
+  }, 0);
+  
+  const totalResourceUtilization = resources.reduce((total, resource) => {
+    const assignedBriefs = briefs.filter(b => b.resource_id === resource.id && b.status !== 'cancelled');
+    const assignedHours = assignedBriefs.reduce((sum, brief) => sum + (brief.estimated_hours || 0), 0);
+    return total + assignedHours;
+  }, 0);
+  
+  const utilizationPercent = totalResourceCapacity > 0 
+    ? Math.round((totalResourceUtilization / totalResourceCapacity) * 100)
+    : 0;
+
+  // Improved calendar events for better visual appearance
   const calendarEvents = [
     // Brief events
     ...stats.upcomingDeadlines.map(brief => ({
@@ -204,22 +239,34 @@ const Dashboard = () => {
         channel: brief.channel
       }
     })),
-    // Campaign events
-    ...stats.campaigns.map(campaign => ({
-      id: `campaign-${campaign.id}`,
-      title: `🎯 ${campaign.name}`,
-      start: new Date(campaign.start_date).toISOString(),
-      end: campaign.end_date ? new Date(campaign.end_date).toISOString() : undefined,
-      allDay: true,
-      backgroundColor: '#3b82f680', // blue-500 with opacity
-      borderColor: '#3b82f6', // blue-500
-      url: `/campaigns/${campaign.id}`,
-      extendedProps: {
-        type: 'campaign',
-        status: campaign.status,
-        brand: campaign.brand?.name
-      }
-    }))
+    // Campaign events - limited to show only 30 days from start to improve appearance
+    ...stats.campaigns.map(campaign => {
+      const startDate = new Date(campaign.start_date);
+      const endDate = campaign.end_date ? new Date(campaign.end_date) : new Date(startDate);
+      
+      // Limit campaigns to display only 30 days at most in the calendar view
+      const displayEndDate = new Date(startDate);
+      displayEndDate.setDate(displayEndDate.getDate() + 30);
+      
+      // Use the earlier of the actual end date or the 30-day limit
+      const effectiveEndDate = endDate < displayEndDate ? endDate : displayEndDate;
+      
+      return {
+        id: `campaign-${campaign.id}`,
+        title: `🎯 ${campaign.name}`,
+        start: startDate.toISOString(),
+        end: effectiveEndDate.toISOString(),
+        allDay: true,
+        backgroundColor: '#3b82f660', // blue-500 with less opacity
+        borderColor: '#3b82f6',
+        url: `/campaigns/${campaign.id}`,
+        extendedProps: {
+          type: 'campaign',
+          status: campaign.status,
+          brand: campaign.brand?.name
+        }
+      };
+    })
   ];
 
   console.log('Calendar Events:', calendarEvents); // Debug log
@@ -227,7 +274,7 @@ const Dashboard = () => {
   return (
     <div className="space-y-6 p-6 bg-gradient-to-br from-slate-50 via-white to-purple-50 min-h-screen">
       {/* Enhanced KPI Cards Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <Card 
           className="p-6 transform transition-all hover:scale-105 cursor-pointer shadow-lg hover:shadow-xl"
           decoration="top"
@@ -267,16 +314,34 @@ const Dashboard = () => {
         <Card 
           className="p-6 transform transition-all hover:scale-105 cursor-pointer shadow-lg hover:shadow-xl"
           decoration="top"
+          decorationColor="blue"
+        >
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg shadow-md">
+              <Briefcase className="h-8 w-8 text-white animate-pulse" />
+            </div>
+            <div>
+              <Text className="text-sm text-gray-500">Active Campaigns</Text>
+              <Title className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
+                {activeCampaignsCount}
+              </Title>
+            </div>
+          </div>
+        </Card>
+
+        <Card 
+          className="p-6 transform transition-all hover:scale-105 cursor-pointer shadow-lg hover:shadow-xl"
+          decoration="top"
           decorationColor="emerald"
         >
           <div className="flex items-center gap-4">
             <div className="p-3 bg-gradient-to-br from-emerald-500 to-green-600 rounded-lg shadow-md">
-              <CalendarIcon className="h-8 w-8 text-white animate-pulse" />
+              <TrendingUp className="h-8 w-8 text-white animate-pulse" />
             </div>
             <div>
-              <Text className="text-sm text-gray-500">Current Week</Text>
-              <Title className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-green-600">
-                {currentWeek}
+              <Text className="text-sm text-gray-500">On-Track Briefs</Text>
+              <Title className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-600 to-green-600">
+                {onTrackRatio}%
               </Title>
             </div>
           </div>
@@ -310,9 +375,9 @@ const Dashboard = () => {
               <Users className="h-8 w-8 text-white animate-pulse" />
             </div>
             <div>
-              <Text className="text-sm text-gray-500">Active Resources</Text>
+              <Text className="text-sm text-gray-500">Resource Utilization</Text>
               <Title className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-violet-600 to-purple-600">
-                {stats.resourceCapacity.length}
+                {utilizationPercent}%
               </Title>
             </div>
           </div>
@@ -327,7 +392,68 @@ const Dashboard = () => {
           decoration="left"
           decorationColor="blue"
         >
-          <Title className="text-lg font-bold mb-4">Upcoming Deliverables</Title>
+          <div className="flex justify-between items-center mb-4">
+            <Title className="text-lg font-bold">Upcoming Deliverables</Title>
+            <div className="flex space-x-2">
+              {/* Calendar filters */}
+              <div className="flex items-center space-x-1">
+                <input 
+                  type="checkbox" 
+                  id="show-campaigns" 
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  defaultChecked
+                  onChange={(e) => {
+                    // Safe access to FullCalendar API
+                    const calendarEl = document.querySelector('.fc') as HTMLElement;
+                    // @ts-ignore - FullCalendar API is not fully typed
+                    const calendarApi = calendarEl?.getApi?.();
+                    if (calendarApi) {
+                      if (e.target.checked) {
+                        calendarApi.getEvents()
+                          .filter((event: any) => event.extendedProps.type === 'campaign')
+                          .forEach((event: any) => event.setProp('display', 'block'));
+                      } else {
+                        calendarApi.getEvents()
+                          .filter((event: any) => event.extendedProps.type === 'campaign')
+                          .forEach((event: any) => event.setProp('display', 'none'));
+                      }
+                    }
+                  }}
+                />
+                <label htmlFor="show-campaigns" className="text-sm text-gray-600">
+                  Campaigns
+                </label>
+              </div>
+              <div className="flex items-center space-x-1">
+                <input 
+                  type="checkbox" 
+                  id="show-briefs" 
+                  className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  defaultChecked
+                  onChange={(e) => {
+                    // Safe access to FullCalendar API
+                    const calendarEl = document.querySelector('.fc') as HTMLElement;
+                    // @ts-ignore - FullCalendar API is not fully typed
+                    const calendarApi = calendarEl?.getApi?.();
+                    if (calendarApi) {
+                      if (e.target.checked) {
+                        calendarApi.getEvents()
+                          .filter((event: any) => event.extendedProps.type === 'brief')
+                          .forEach((event: any) => event.setProp('display', 'block'));
+                      } else {
+                        calendarApi.getEvents()
+                          .filter((event: any) => event.extendedProps.type === 'brief')
+                          .forEach((event: any) => event.setProp('display', 'none'));
+                      }
+                    }
+                  }}
+                />
+                <label htmlFor="show-briefs" className="text-sm text-gray-600">
+                  Briefs
+                </label>
+              </div>
+            </div>
+          </div>
           <div className="mt-4 h-[400px]">
             <FullCalendar
               plugins={[dayGridPlugin, interactionPlugin]}

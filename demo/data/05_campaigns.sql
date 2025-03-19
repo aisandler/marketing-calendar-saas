@@ -1,328 +1,252 @@
 -- Demo Data Generation: Campaigns
--- This script creates campaigns spanning the past year and into the future
+-- This script creates demo campaigns for each brand
 
 -- Helper function to get random user ID
-CREATE OR REPLACE FUNCTION demo_random_user(user_role TEXT DEFAULT NULL) 
+CREATE OR REPLACE FUNCTION demo_random_user(role_type TEXT DEFAULT NULL) 
 RETURNS UUID AS $$
 DECLARE
-    result UUID;
+    user_id UUID;
 BEGIN
-    IF user_role IS NULL THEN
-        SELECT id INTO result FROM public.users 
-        WHERE email LIKE '%.demo@example.com' 
+    IF role_type IS NULL THEN
+        SELECT id INTO user_id FROM auth.users 
+        WHERE email LIKE '%.demo@example.com'
         ORDER BY random() LIMIT 1;
     ELSE
-        SELECT id INTO result FROM public.users 
-        WHERE email LIKE '%.demo@example.com' AND role = user_role
+        SELECT id INTO user_id FROM auth.users 
+        WHERE email LIKE '%.demo@example.com' AND raw_user_meta_data->>'role' = role_type
         ORDER BY random() LIMIT 1;
     END IF;
     
-    RETURN result;
+    RETURN user_id;
 END;
 $$ LANGUAGE plpgsql;
 
--- Create a series of campaigns for Acme Corp (Technology)
-INSERT INTO public.campaigns (
-    name, 
-    description, 
-    brand_id, 
-    start_date, 
-    end_date, 
-    status, 
-    created_by
-)
-VALUES
-    -- Past campaigns (completed)
-    (
-        'Demo Acme Product Launch Q2', 
-        'Launch campaign for our new flagship product line',
-        (SELECT id FROM public.brands WHERE name = 'Demo Acme Corp'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '12 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '9 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '9 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '8 months')::DATE
-        ),
-        'complete',
-        demo_random_user('admin')
-    ),
-    (
-        'Demo Acme Holiday Campaign', 
-        'Holiday season promotional campaign for Acme products',
-        (SELECT id FROM public.brands WHERE name = 'Demo Acme Corp'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '6 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '5 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '4 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '3 months')::DATE
-        ),
-        'complete',
-        demo_random_user('admin')
-    ),
+-- Helper function to create campaign dates
+CREATE OR REPLACE FUNCTION demo_campaign_dates(
+    campaign_type TEXT,
+    base_date DATE DEFAULT CURRENT_DATE
+) RETURNS TABLE (
+    start_date DATE,
+    end_date DATE,
+    status campaign_status
+) AS $$
+DECLARE
+    past_start DATE;
+    past_end DATE;
+    current_start DATE;
+    current_end DATE;
+    future_start DATE;
+    future_end DATE;
+    rand_days INTEGER;
+BEGIN
+    -- Variables for past campaigns
+    rand_days := floor(random() * 90)::INTEGER + 90; -- 3-6 months ago
+    past_start := base_date - (rand_days * INTERVAL '1 day');
+    past_end := past_start + ((floor(random() * 60)::INTEGER + 30) * INTERVAL '1 day'); -- 1-3 month duration
     
-    -- Current campaign (active)
-    (
-        'Demo Acme Spring Innovation', 
-        'Showcasing the latest innovations from Acme Corp',
-        (SELECT id FROM public.brands WHERE name = 'Demo Acme Corp'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '2 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '1 month')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '1 month')::DATE, 
-            (CURRENT_DATE + INTERVAL '2 months')::DATE
-        ),
-        'active',
-        demo_random_user('admin')
-    ),
+    -- Variables for current campaigns
+    rand_days := floor(random() * 30)::INTEGER + 15; -- 0.5-1.5 months ago
+    current_start := base_date - (rand_days * INTERVAL '1 day');
+    current_end := base_date + ((floor(random() * 45)::INTEGER + 15) * INTERVAL '1 day'); -- 0.5-2 months from now
     
-    -- Future campaign (draft)
-    (
-        'Demo Acme Fall Product Refresh', 
-        'Product line refresh and promotional campaign',
-        (SELECT id FROM public.brands WHERE name = 'Demo Acme Corp'),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '2 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '3 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '5 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '6 months')::DATE
-        ),
-        'draft',
-        demo_random_user('admin')
-    )
-ON CONFLICT (name) DO UPDATE SET
-    description = EXCLUDED.description,
-    status = EXCLUDED.status;
+    -- Variables for future campaigns
+    rand_days := floor(random() * 30)::INTEGER + 15; -- 0.5-1.5 months from now
+    future_start := base_date + (rand_days * INTERVAL '1 day');
+    future_end := future_start + ((floor(random() * 90)::INTEGER + 30) * INTERVAL '1 day'); -- 1-4 month duration
+    
+    -- Return appropriate dates based on campaign type
+    IF campaign_type = 'past' THEN
+        start_date := past_start;
+        end_date := past_end;
+        status := 'complete';
+    ELSIF campaign_type = 'current' THEN
+        start_date := current_start;
+        end_date := current_end;
+        status := 'active';
+    ELSIF campaign_type = 'future' THEN
+        start_date := future_start;
+        end_date := future_end;
+        status := 'draft';
+    ELSE
+        -- Default to current if invalid type
+        start_date := current_start;
+        end_date := current_end;
+        status := 'active';
+    END IF;
+    
+    RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql;
 
--- Create campaigns for Zenith Health (Healthcare)
-INSERT INTO public.campaigns (
-    name, 
-    description, 
-    brand_id, 
-    start_date, 
-    end_date, 
-    status, 
-    created_by
+-- Tech brand campaigns
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+WITH campaign_data AS (
+    -- Past campaigns
+    SELECT 
+        'Demo Product Launch: Quantum Smartphone' as name,
+        'Launch campaign for our flagship smartphone with quantum computing capabilities' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Tech Innovations') as brand_id,
+        *
+    FROM demo_campaign_dates('past')
+    UNION ALL
+    SELECT 
+        'Demo Holiday Tech Bundle' as name,
+        'Special bundle offers across our product line for the holiday season' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Tech Innovations') as brand_id,
+        *
+    FROM demo_campaign_dates('past')
+    UNION ALL
+    -- Current campaigns
+    SELECT 
+        'Demo AI Integration Rollout' as name,
+        'Marketing campaign for new AI features across our software products' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Tech Innovations') as brand_id,
+        *
+    FROM demo_campaign_dates('current')
+    UNION ALL
+    -- Future campaigns
+    SELECT 
+        'Demo Back to School Tech Essentials' as name,
+        'Targeting students with educational discounts and essential tech packages' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Tech Innovations') as brand_id,
+        *
+    FROM demo_campaign_dates('future')
+    UNION ALL
+    SELECT 
+        'Demo 10th Anniversary Technology Showcase' as name,
+        'Special event and product releases celebrating our 10th year of innovation' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Tech Innovations') as brand_id,
+        *
+    FROM demo_campaign_dates('future')
 )
-VALUES
-    -- Past campaign
-    (
-        'Demo Zenith Wellness Series', 
-        'Educational content series about wellness and preventative health',
-        (SELECT id FROM public.brands WHERE name = 'Demo Zenith Health'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '10 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '9 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '7 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '6 months')::DATE
-        ),
-        'complete',
-        demo_random_user('manager')
-    ),
-    
-    -- Current campaign
-    (
-        'Demo Zenith Summer Health', 
-        'Summer health tips and product promotion campaign',
-        (SELECT id FROM public.brands WHERE name = 'Demo Zenith Health'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '1 month')::DATE, 
-            CURRENT_DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '2 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '3 months')::DATE
-        ),
-        'active',
-        demo_random_user('manager')
-    )
-ON CONFLICT (name) DO UPDATE SET
-    description = EXCLUDED.description,
-    status = EXCLUDED.status;
+SELECT 
+    name, 
+    description,
+    brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'admin.demo@example.com')
+FROM campaign_data;
 
--- Create campaigns for EcoSolutions (Sustainability)
-INSERT INTO public.campaigns (
-    name, 
-    description, 
-    brand_id, 
-    start_date, 
-    end_date, 
-    status, 
-    created_by
+-- Health brand campaigns
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+WITH campaign_data AS (
+    -- Past campaigns
+    SELECT 
+        'Demo Organic Product Line Expansion' as name,
+        'Launch of new certified organic product line with 30 new SKUs' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Healthy Living') as brand_id,
+        *
+    FROM demo_campaign_dates('past')
+    UNION ALL
+    -- Current campaigns
+    SELECT 
+        'Demo Summer Fitness Challenge' as name,
+        'Social media campaign engaging customers in 60-day fitness challenges' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Healthy Living') as brand_id,
+        *
+    FROM demo_campaign_dates('current')
+    UNION ALL
+    SELECT 
+        'Demo Wellness Webinar Series' as name,
+        'Educational content marketing featuring health experts and nutritionists' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Healthy Living') as brand_id,
+        *
+    FROM demo_campaign_dates('current')
+    UNION ALL
+    -- Future campaigns
+    SELECT 
+        'Demo Plant-Based Protein Revolution' as name,
+        'Launch campaign for new plant-based protein product line' as description,
+        (SELECT id FROM public.brands WHERE name = 'Demo Healthy Living') as brand_id,
+        *
+    FROM demo_campaign_dates('future')
 )
-VALUES
-    -- Past campaign
-    (
-        'Demo Eco Earth Day Initiative', 
-        'Special campaign focused on sustainability for Earth Day',
-        (SELECT id FROM public.brands WHERE name = 'Demo EcoSolutions'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '11 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '10 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '9 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '8 months')::DATE
-        ),
-        'complete',
-        demo_random_user('manager')
-    ),
-    
-    -- Current campaign
-    (
-        'Demo Eco Plastic Reduction', 
-        'Campaign to promote our plastic-free product alternatives',
-        (SELECT id FROM public.brands WHERE name = 'Demo EcoSolutions'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '3 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '2 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '1 month')::DATE, 
-            (CURRENT_DATE + INTERVAL '2 months')::DATE
-        ),
-        'active',
-        demo_random_user('manager')
-    ),
-    
-    -- Future campaign
-    (
-        'Demo Eco Holiday Sustainable Gifts', 
-        'Holiday campaign focusing on sustainable gift options',
-        (SELECT id FROM public.brands WHERE name = 'Demo EcoSolutions'),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '4 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '5 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '7 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '8 months')::DATE
-        ),
-        'draft',
-        demo_random_user('manager')
-    )
-ON CONFLICT (name) DO UPDATE SET
-    description = EXCLUDED.description,
-    status = EXCLUDED.status;
+SELECT 
+    name, 
+    description,
+    brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'cmo.demo@example.com')
+FROM campaign_data;
 
--- Create campaigns for other brands
-INSERT INTO public.campaigns (
-    name, 
-    description, 
-    brand_id, 
-    start_date, 
-    end_date, 
-    status, 
-    created_by
-)
-VALUES
-    -- Velocity Motors (Automotive)
-    (
-        'Demo Velocity Summer Performance', 
-        'Summer campaign showcasing vehicle performance features',
-        (SELECT id FROM public.brands WHERE name = 'Demo Velocity Motors'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '4 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '3 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '2 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '3 months')::DATE
-        ),
-        'active',
-        demo_random_user('admin')
-    ),
-    
-    -- Horizon Finance (Financial Services)
-    (
-        'Demo Horizon Retirement Planning', 
-        'Educational campaign about retirement planning options',
-        (SELECT id FROM public.brands WHERE name = 'Demo Horizon Finance'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '5 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '4 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '1 month')::DATE, 
-            CURRENT_DATE
-        ),
-        'complete',
-        demo_random_user('manager')
-    ),
-    
-    -- Cosmic Beverages (Beverage)
-    (
-        'Demo Cosmic Summer Refresh', 
-        'Summer promotional campaign for refreshing beverages',
-        (SELECT id FROM public.brands WHERE name = 'Demo Cosmic Beverages'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '2 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '1 month')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '3 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '4 months')::DATE
-        ),
-        'active',
-        demo_random_user('manager')
-    ),
-    
-    -- Frontier Travel (Travel)
-    (
-        'Demo Frontier Destination Series', 
-        'Campaign showcasing exotic travel destinations',
-        (SELECT id FROM public.brands WHERE name = 'Demo Frontier Travel'),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '6 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '5 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE - INTERVAL '2 months')::DATE, 
-            (CURRENT_DATE - INTERVAL '1 month')::DATE
-        ),
-        'complete',
-        demo_random_user('admin')
-    ),
-    (
-        'Demo Frontier Fall Getaways', 
-        'Promotional campaign for fall travel packages',
-        (SELECT id FROM public.brands WHERE name = 'Demo Frontier Travel'),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '1 month')::DATE, 
-            (CURRENT_DATE + INTERVAL '2 months')::DATE
-        ),
-        demo_random_date(
-            (CURRENT_DATE + INTERVAL '4 months')::DATE, 
-            (CURRENT_DATE + INTERVAL '5 months')::DATE
-        ),
-        'draft',
-        demo_random_user('admin')
-    )
-ON CONFLICT (name) DO UPDATE SET
-    description = EXCLUDED.description,
-    status = EXCLUDED.status;
+-- Create campaigns for the remaining brands
+-- Insert at least 1 past, 1 current, and 1 future campaign for each of the remaining brands
+-- Fashion brand
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+SELECT 
+    'Demo Fall Collection Launch' as name,
+    'Introducing our exclusive designer fall collection with premium materials' as description,
+    (SELECT id FROM public.brands WHERE name = 'Demo Luxury Fashion') as brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'manager1.demo@example.com')
+FROM demo_campaign_dates('current');
+
+-- Home brand
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+SELECT 
+    'Demo Home Office Solutions' as name,
+    'Showcasing our ergonomic and stylish home office furniture and accessories' as description,
+    (SELECT id FROM public.brands WHERE name = 'Demo Urban Dwellings') as brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'manager2.demo@example.com')
+FROM demo_campaign_dates('future');
+
+-- Outdoor brand
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+SELECT 
+    'Demo Winter Expedition Ready' as name,
+    'Promotional campaign for our winter expedition gear and cold-weather essentials' as description,
+    (SELECT id FROM public.brands WHERE name = 'Demo Adventure Gear') as brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'manager3.demo@example.com')
+FROM demo_campaign_dates('past');
+
+-- Food brand
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+SELECT 
+    'Demo Gourmet Cooking Masterclass Series' as name,
+    'Online cooking classes featuring celebrity chefs using our premium ingredients' as description,
+    (SELECT id FROM public.brands WHERE name = 'Demo Culinary Delights') as brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'manager4.demo@example.com')
+FROM demo_campaign_dates('current');
+
+-- Finance brand
+INSERT INTO public.campaigns (name, description, brand_id, status, start_date, end_date, created_by)
+SELECT 
+    'Demo Investment Account Promotion' as name,
+    'Special offers for new investment accounts with reduced fees and premium benefits' as description,
+    (SELECT id FROM public.brands WHERE name = 'Demo Financial Services') as brand_id,
+    status,
+    start_date,
+    end_date,
+    (SELECT id FROM public.users WHERE email = 'manager5.demo@example.com')
+FROM demo_campaign_dates('future');
 
 -- Output campaign counts by status
 DO $$
 DECLARE
+    total_count INTEGER;
     draft_count INTEGER;
     active_count INTEGER;
     complete_count INTEGER;
-    total_count INTEGER;
 BEGIN
+    SELECT COUNT(*) INTO total_count FROM public.campaigns WHERE name LIKE 'Demo%';
     SELECT COUNT(*) INTO draft_count FROM public.campaigns WHERE name LIKE 'Demo%' AND status = 'draft';
     SELECT COUNT(*) INTO active_count FROM public.campaigns WHERE name LIKE 'Demo%' AND status = 'active';
     SELECT COUNT(*) INTO complete_count FROM public.campaigns WHERE name LIKE 'Demo%' AND status = 'complete';
-    SELECT COUNT(*) INTO total_count FROM public.campaigns WHERE name LIKE 'Demo%';
     
     RAISE NOTICE 'Demo campaigns created: % (% draft, % active, % complete)', 
         total_count, draft_count, active_count, complete_count;

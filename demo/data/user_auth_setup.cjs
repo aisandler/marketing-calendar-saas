@@ -1,12 +1,10 @@
 // Demo User Authentication Setup
 // This script creates the demo users in Supabase Auth to enable login
 
-import dotenv from 'dotenv';
-import fetch from 'node-fetch';
+require('dotenv').config({ path: '.env.local' });
+const fetch = require('node-fetch');
 
 // Configuration from .env.local
-dotenv.config({ path: '.env.local' });
-
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

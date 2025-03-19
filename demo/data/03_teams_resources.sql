@@ -8,9 +8,7 @@ VALUES
     ('Demo Content', 'Content creation and copywriting team'),
     ('Demo Digital Marketing', 'Digital and social media marketing team'),
     ('Demo Video Production', 'Video editing and production team'),
-    ('Demo Web Development', 'Web and app development team')
-ON CONFLICT (name) DO UPDATE SET
-    description = EXCLUDED.description;
+    ('Demo Web Development', 'Web and app development team');
 
 -- Store team IDs for reference
 DO $$
@@ -60,14 +58,7 @@ VALUES
     
     -- Web team
     ('Demo Developer - James', 'internal', 40, (SELECT id FROM public.teams WHERE name = 'Demo Web Development'), 100, 'Frontend'),
-    ('Demo Developer - Ava', 'internal', 40, (SELECT id FROM public.teams WHERE name = 'Demo Web Development'), 110, 'Backend')
-    
-ON CONFLICT (name) DO UPDATE SET
-    type = EXCLUDED.type,
-    capacity_hours = EXCLUDED.capacity_hours,
-    team_id = EXCLUDED.team_id,
-    hourly_rate = EXCLUDED.hourly_rate,
-    media_type = EXCLUDED.media_type;
+    ('Demo Developer - Ava', 'internal', 40, (SELECT id FROM public.teams WHERE name = 'Demo Web Development'), 110, 'Backend');
 
 -- Create agency resources
 INSERT INTO public.resources (name, type, capacity_hours, hourly_rate, media_type)
@@ -75,12 +66,7 @@ VALUES
     ('Demo Creative Agency', 'agency', 100, 150, 'Full Service'),
     ('Demo Video Production Co', 'agency', 60, 175, 'Video'),
     ('Demo Digital Agency', 'agency', 80, 130, 'Digital Marketing'),
-    ('Demo PR Firm', 'agency', 40, 160, 'PR')
-ON CONFLICT (name) DO UPDATE SET
-    type = EXCLUDED.type,
-    capacity_hours = EXCLUDED.capacity_hours,
-    hourly_rate = EXCLUDED.hourly_rate,
-    media_type = EXCLUDED.media_type;
+    ('Demo PR Firm', 'agency', 40, 160, 'PR');
 
 -- Create freelancer resources
 INSERT INTO public.resources (name, type, capacity_hours, hourly_rate, media_type)
@@ -89,12 +75,7 @@ VALUES
     ('Demo Freelancer - Jordan (Writer)', 'freelancer', 25, 85, 'Copy'),
     ('Demo Freelancer - Taylor (Developer)', 'freelancer', 30, 120, 'Web Development'),
     ('Demo Freelancer - Casey (Video)', 'freelancer', 15, 110, 'Video'),
-    ('Demo Freelancer - Morgan (Social)', 'freelancer', 20, 75, 'Social Media')
-ON CONFLICT (name) DO UPDATE SET
-    type = EXCLUDED.type,
-    capacity_hours = EXCLUDED.capacity_hours,
-    hourly_rate = EXCLUDED.hourly_rate,
-    media_type = EXCLUDED.media_type;
+    ('Demo Freelancer - Morgan (Social)', 'freelancer', 20, 75, 'Social Media');
 
 -- Output resource counts
 DO $$
@@ -103,9 +84,9 @@ DECLARE
     agency_count INTEGER;
     freelancer_count INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO internal_count FROM public.resources WHERE type = 'internal';
-    SELECT COUNT(*) INTO agency_count FROM public.resources WHERE type = 'agency';
-    SELECT COUNT(*) INTO freelancer_count FROM public.resources WHERE type = 'freelancer';
+    SELECT COUNT(*) INTO internal_count FROM public.resources WHERE type = 'internal' AND name LIKE 'Demo%';
+    SELECT COUNT(*) INTO agency_count FROM public.resources WHERE type = 'agency' AND name LIKE 'Demo%';
+    SELECT COUNT(*) INTO freelancer_count FROM public.resources WHERE type = 'freelancer' AND name LIKE 'Demo%';
     
     RAISE NOTICE 'Demo resources created: % internal, % agencies, % freelancers', 
         internal_count, agency_count, freelancer_count;

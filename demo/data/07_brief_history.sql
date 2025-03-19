@@ -1,202 +1,84 @@
 -- Demo Data Generation: Brief History
--- This script creates history records for brief changes to show how briefs evolve over time
+-- This script creates historical records for brief progressions
 
--- Create history records for briefs that are completed or in progress
+-- Create history records for briefs that have moved through workflow stages
 DO $$
 DECLARE
-    brief_rec RECORD;
-    history_count INTEGER := 0;
-    status_changes TEXT[] := ARRAY['draft', 'approved', 'in_progress', 'review', 'complete'];
-    next_status TEXT;
-    prev_state JSONB;
-    new_state JSONB;
-    changed_by_id UUID;
-    created_at TIMESTAMP WITH TIME ZONE;
+    brief_record RECORD;
+    status_history brief_status[] := ARRAY['draft', 'approved', 'in_progress', 'review', 'complete']::brief_status[];
     status_index INTEGER;
-BEGIN
-    -- Loop through briefs that are complete or in progress (these should have history)
-    FOR brief_rec IN (
-        SELECT id, title, status, created_at AS brief_created, 
-               updated_at AS brief_updated, start_date, due_date
-        FROM public.briefs 
-        WHERE title LIKE 'Demo%' 
-        AND (status = 'complete' OR status = 'in_progress' OR status = 'review')
-        ORDER BY created_at
-    ) LOOP
-        -- Reset status index to track the current status in the flow
-        IF brief_rec.status = 'draft' THEN
-            status_index := 1;
-        ELSIF brief_rec.status = 'approved' THEN
-            status_index := 2;
-        ELSIF brief_rec.status = 'in_progress' THEN
-            status_index := 3;
-        ELSIF brief_rec.status = 'review' THEN
-            status_index := 4;
-        ELSIF brief_rec.status = 'complete' THEN
-            status_index := 5;
-        ELSE
-            status_index := 1; -- Default for any other status
-        END IF;
-        
-        -- Create 1-4 history records per brief
-        FOR i IN 1..floor(random() * 4 + 1) LOOP
-            -- We'll create history showing the progression through statuses
-            -- Get a random user ID for who made the change
-            changed_by_id := demo_random_user(CASE WHEN random() < 0.4 THEN 'manager' ELSE 'contributor' END);
-            
-            -- The timestamp will be sometime between creation and now
-            created_at := brief_rec.brief_created + 
-                         (random() * (COALESCE(brief_rec.brief_updated, CURRENT_TIMESTAMP) - brief_rec.brief_created));
-            
-            -- The status change should show progression
-            -- For complete briefs, show the history of getting there
-            IF brief_rec.status = 'complete' THEN
-                IF i = 1 THEN
-                    -- First history record: draft -> approved
-                    prev_state := jsonb_build_object(
-                        'status', 'draft',
-                        'updated_at', brief_rec.brief_created
-                    );
-                    new_state := jsonb_build_object(
-                        'status', 'approved',
-                        'updated_at', created_at
-                    );
-                ELSIF i = 2 THEN
-                    -- Second history record: approved -> in_progress
-                    prev_state := jsonb_build_object(
-                        'status', 'approved',
-                        'updated_at', created_at - INTERVAL '2 days'
-                    );
-                    new_state := jsonb_build_object(
-                        'status', 'in_progress',
-                        'updated_at', created_at
-                    );
-                ELSIF i = 3 THEN
-                    -- Third history record: in_progress -> review
-                    prev_state := jsonb_build_object(
-                        'status', 'in_progress',
-                        'updated_at', created_at - INTERVAL '2 days'
-                    );
-                    new_state := jsonb_build_object(
-                        'status', 'review',
-                        'updated_at', created_at
-                    );
-                ELSE
-                    -- Fourth history record: review -> complete
-                    prev_state := jsonb_build_object(
-                        'status', 'review',
-                        'updated_at', created_at - INTERVAL '1 day'
-                    );
-                    new_state := jsonb_build_object(
-                        'status', 'complete',
-                        'updated_at', created_at
-                    );
-                END IF;
-            ELSIF brief_rec.status = 'in_progress' THEN
-                IF i = 1 THEN
-                    -- First history record: draft -> approved
-                    prev_state := jsonb_build_object(
-                        'status', 'draft',
-                        'updated_at', brief_rec.brief_created
-                    );
-                    new_state := jsonb_build_object(
-                        'status', 'approved',
-                        'updated_at', created_at
-                    );
-                ELSE
-                    -- Second history record: approved -> in_progress
-                    prev_state := jsonb_build_object(
-                        'status', 'approved',
-                        'updated_at', created_at - INTERVAL '2 days'
-                    );
-                    new_state := jsonb_build_object(
-                        'status', 'in_progress',
-                        'updated_at', created_at
-                    );
-                END IF;
-            ELSE
-                -- For other statuses, just show one status change
-                IF status_index > 1 THEN
-                    prev_state := jsonb_build_object(
-                        'status', status_changes[status_index-1],
-                        'updated_at', brief_rec.brief_created
-                    );
-                    new_state := jsonb_build_object(
-                        'status', brief_rec.status,
-                        'updated_at', created_at
-                    );
-                ELSE
-                    -- If we're still in draft, show an edit to the description or due date
-                    prev_state := jsonb_build_object(
-                        'description', 'Initial draft description',
-                        'due_date', brief_rec.start_date + INTERVAL '7 days',
-                        'updated_at', brief_rec.brief_created
-                    );
-                    new_state := jsonb_build_object(
-                        'description', 'Updated description with more details',
-                        'due_date', brief_rec.due_date,
-                        'updated_at', created_at
-                    );
-                END IF;
-            END IF;
-            
-            -- Insert history record
-            INSERT INTO public.brief_history (
-                brief_id,
-                changed_by,
-                previous_state,
-                new_state,
-                created_at
-            ) VALUES (
-                brief_rec.id,
-                changed_by_id,
-                prev_state,
-                new_state,
-                created_at
-            );
-            
-            history_count := history_count + 1;
-        END LOOP;
-    END LOOP;
+    current_status brief_status;
+    history_date TIMESTAMP;
+    comment_text TEXT;
+    user_id UUID;
+    brief_history_count INTEGER := 0;
+    unique_brief_count INTEGER := 0;
     
-    RAISE NOTICE 'Created % brief history records', history_count;
-END;
-$$;
-
--- Also add some resource reassignment history
-DO $$
-DECLARE
-    brief_rec RECORD;
-    history_count INTEGER := 0;
-    old_resource_id UUID;
-    new_resource_id UUID;
-    changed_by_id UUID;
-    created_at TIMESTAMP WITH TIME ZONE;
+    -- Arrays of possible comments for each transition
+    draft_comments TEXT[] := ARRAY[
+        'Initial brief created for campaign.',
+        'Draft brief submitted for review.',
+        'Created draft brief with initial specifications.',
+        'Preliminary brief requirements documented.'
+    ];
+    
+    approved_comments TEXT[] := ARRAY[
+        'Brief approved by marketing manager.',
+        'All requirements confirmed, ready to proceed.',
+        'Brief meets campaign objectives, approved.',
+        'Scope and timeline approved.'
+    ];
+    
+    in_progress_comments TEXT[] := ARRAY[
+        'Work started on deliverables.',
+        'Resource has begun implementation.',
+        'Production phase initiated.',
+        'Creative development in progress.'
+    ];
+    
+    review_comments TEXT[] := ARRAY[
+        'Deliverables submitted for review.',
+        'Ready for stakeholder feedback.',
+        'Completed work submitted for approval.',
+        'Please review the attached materials.'
+    ];
+    
+    complete_comments TEXT[] := ARRAY[
+        'All deliverables finalized and approved.',
+        'Brief objectives successfully met.',
+        'Project completed within specifications.',
+        'Final assets delivered and published.'
+    ];
+    
 BEGIN
-    -- Loop through some random briefs to add resource reassignment
-    FOR brief_rec IN (
-        SELECT id, resource_id, created_at AS brief_created, updated_at AS brief_updated
-        FROM public.briefs 
-        WHERE title LIKE 'Demo%' 
-        AND resource_id IS NOT NULL
-        ORDER BY random()
-        LIMIT 20 -- Only do 20 resource reassignments
-    ) LOOP
-        -- Get a different resource than the current one
-        SELECT id INTO new_resource_id 
-        FROM public.resources 
-        WHERE name LIKE 'Demo%' AND id != brief_rec.resource_id
-        ORDER BY random() 
-        LIMIT 1;
+    -- Get a random user ID for the history records
+    SELECT id INTO user_id FROM public.users 
+    WHERE email LIKE '%.demo@example.com'
+    ORDER BY random() LIMIT 1;
+    
+    -- Process completed/in-progress/review briefs (these have a history)
+    FOR brief_record IN 
+        SELECT b.id, b.title, b.status, 
+               b.created_at AS brief_created, 
+               b.updated_at AS brief_updated, 
+               b.start_date, b.due_date
+        FROM public.briefs b
+        WHERE b.title LIKE 'Demo%' 
+        AND (b.status = 'complete' OR b.status = 'in_progress' OR b.status = 'review')
+        ORDER BY b.created_at
+    LOOP
+        -- Count unique briefs
+        unique_brief_count := unique_brief_count + 1;
         
-        -- Get manager to make the change
-        changed_by_id := demo_random_user('manager');
+        -- Start with draft status
+        current_status := 'draft';
+        status_index := 1; -- Draft is the first status
         
-        -- The timestamp will be sometime between creation and update
-        created_at := brief_rec.brief_created + 
-                     (random() * (COALESCE(brief_rec.brief_updated, CURRENT_TIMESTAMP) - brief_rec.brief_created));
+        -- Initial creation record
+        history_date := brief_record.brief_created;
+        comment_text := draft_comments[floor(random() * array_length(draft_comments, 1)) + 1];
         
-        -- Insert history record for resource reassignment
+        -- Insert initial status record
         INSERT INTO public.brief_history (
             brief_id,
             changed_by,
@@ -204,36 +86,168 @@ BEGIN
             new_state,
             created_at
         ) VALUES (
-            brief_rec.id,
-            changed_by_id,
-            jsonb_build_object(
-                'resource_id', brief_rec.resource_id,
-                'updated_at', brief_rec.brief_created
-            ),
-            jsonb_build_object(
-                'resource_id', new_resource_id,
-                'updated_at', created_at
-            ),
-            created_at
+            brief_record.id,
+            user_id,
+            jsonb_build_object('status', NULL, 'comment', 'Brief created'),
+            jsonb_build_object('status', current_status, 'comment', comment_text),
+            history_date
         );
         
-        history_count := history_count + 1;
+        brief_history_count := brief_history_count + 1;
+        
+        -- Determine how far in the workflow this brief has progressed
+        IF brief_record.status = 'complete' THEN 
+            status_index := 5; -- Go through all statuses
+        ELSIF brief_record.status = 'review' THEN 
+            status_index := 4; -- Go up to review
+        ELSIF brief_record.status = 'in_progress' THEN 
+            status_index := 3; -- Go up to in_progress
+        ELSIF brief_record.status = 'approved' THEN 
+            status_index := 2; -- Go up to approved
+        ELSE 
+            status_index := 1; -- Shouldn't happen but just in case
+        END IF;
+        
+        -- Generate history for each status transition
+        FOR i IN 2..status_index LOOP
+            -- Update timestamp - spread events between created_at and updated_at
+            history_date := brief_record.brief_created + 
+                            (((i - 1.0) / status_index) * 
+                             (brief_record.brief_updated - brief_record.brief_created));
+            
+            -- Previous status
+            current_status := status_history[i-1];
+            
+            -- Comment based on new status
+            IF status_history[i] = 'approved' THEN
+                comment_text := approved_comments[floor(random() * array_length(approved_comments, 1)) + 1];
+            ELSIF status_history[i] = 'in_progress' THEN
+                comment_text := in_progress_comments[floor(random() * array_length(in_progress_comments, 1)) + 1];
+            ELSIF status_history[i] = 'review' THEN
+                comment_text := review_comments[floor(random() * array_length(review_comments, 1)) + 1];
+            ELSIF status_history[i] = 'complete' THEN
+                comment_text := complete_comments[floor(random() * array_length(complete_comments, 1)) + 1];
+            ELSE
+                comment_text := 'Status updated.';
+            END IF;
+            
+            -- Insert status change record
+            INSERT INTO public.brief_history (
+                brief_id,
+                changed_by,
+                previous_state,
+                new_state,
+                created_at
+            ) VALUES (
+                brief_record.id,
+                user_id,
+                jsonb_build_object('status', current_status, 'comment', 'Previous status'),
+                jsonb_build_object('status', status_history[i], 'comment', comment_text),
+                history_date
+            );
+            
+            brief_history_count := brief_history_count + 1;
+            
+            -- Add some comment records between status changes (30% chance)
+            IF random() < 0.3 THEN
+                -- Add a comment 1-3 days after the status change
+                -- For comments, we'll just update the comment field with no status change
+                INSERT INTO public.brief_history (
+                    brief_id,
+                    changed_by,
+                    previous_state,
+                    new_state,
+                    created_at
+                ) VALUES (
+                    brief_record.id,
+                    user_id,
+                    jsonb_build_object('comment', ''),
+                    jsonb_build_object('comment', 
+                        CASE floor(random() * 5)
+                            WHEN 0 THEN 'Updated timeline to reflect current progress.'
+                            WHEN 1 THEN 'Discussed resource allocation with team.'
+                            WHEN 2 THEN 'Clarified specifications with stakeholders.'
+                            WHEN 3 THEN 'Added additional reference materials.'
+                            ELSE 'Reviewed progress with campaign manager.'
+                        END
+                    ),
+                    history_date + (floor(random() * 3) + 1) * INTERVAL '1 day'
+                );
+                
+                brief_history_count := brief_history_count + 1;
+            END IF;
+            
+            -- Update current status
+            current_status := status_history[i];
+        END LOOP;
     END LOOP;
     
-    RAISE NOTICE 'Created % resource reassignment history records', history_count;
-END;
-$$;
-
--- Output history statistics
-DO $$
-DECLARE
-    history_count INTEGER;
-    briefs_with_history INTEGER;
-BEGIN
-    SELECT COUNT(*) INTO history_count FROM public.brief_history;
-    SELECT COUNT(DISTINCT brief_id) INTO briefs_with_history FROM public.brief_history;
+    -- Create some resource change history records
+    FOR brief_record IN 
+        SELECT b.id, b.resource_id, 
+               b.created_at AS brief_created, 
+               b.updated_at AS brief_updated
+        FROM public.briefs b
+        WHERE b.title LIKE 'Demo%' 
+        AND b.resource_id IS NOT NULL
+        ORDER BY random()
+        LIMIT 20 -- Only do 20 resource reassignments
+    LOOP
+        -- 50% of briefs get a resource reassignment
+        IF random() < 0.5 THEN
+            -- Get a new resource that's different from the current one
+            DECLARE
+                old_resource_id UUID := brief_record.resource_id;
+                new_resource_id UUID;
+                history_date TIMESTAMP;
+                old_resource_name TEXT;
+                new_resource_name TEXT;
+            BEGIN
+                -- Find a different resource
+                SELECT id INTO new_resource_id 
+                FROM public.resources 
+                WHERE name LIKE 'Demo%' AND id != old_resource_id
+                ORDER BY random() 
+                LIMIT 1;
+                
+                -- Get resource names
+                SELECT name INTO old_resource_name FROM public.resources WHERE id = old_resource_id;
+                SELECT name INTO new_resource_name FROM public.resources WHERE id = new_resource_id;
+                
+                -- Create a history record at some point during the brief's lifetime
+                history_date := brief_record.brief_created + 
+                               (random() * (brief_record.brief_updated - brief_record.brief_created));
+                
+                -- Insert resource change record
+                INSERT INTO public.brief_history (
+                    brief_id,
+                    changed_by,
+                    previous_state,
+                    new_state,
+                    created_at
+                ) VALUES (
+                    brief_record.id,
+                    user_id,
+                    jsonb_build_object('resource_id', old_resource_id, 'resource_name', old_resource_name),
+                    jsonb_build_object(
+                        'resource_id', new_resource_id, 
+                        'resource_name', new_resource_name,
+                        'comment', CASE floor(random() * 4)
+                            WHEN 0 THEN 'Reassigned due to availability constraints.'
+                            WHEN 1 THEN 'Changed resource to better match skill requirements.'
+                            WHEN 2 THEN 'Previous resource unavailable, reassigned.'
+                            ELSE 'Optimized resource allocation across team.'
+                        END
+                    ),
+                    history_date
+                );
+                
+                brief_history_count := brief_history_count + 1;
+            END;
+        END IF;
+    END LOOP;
     
     RAISE NOTICE 'Brief history statistics: % total records for % unique briefs', 
-        history_count, briefs_with_history;
+        brief_history_count, unique_brief_count;
 END;
 $$; 
