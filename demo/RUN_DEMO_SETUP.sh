@@ -86,7 +86,7 @@ echo -e "${GREEN}✓ node-fetch is available${NC}"
 
 # Initialize and start Supabase
 echo -e "\n${YELLOW}Initializing Supabase project...${NC}"
-supabase init
+supabase init --no-deno
 
 echo -e "\n${YELLOW}Starting Supabase services... (this may take a few minutes)${NC}"
 supabase start
