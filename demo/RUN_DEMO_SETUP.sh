@@ -92,13 +92,46 @@ echo -e "\n${YELLOW}Starting Supabase services... (this may take a few minutes)$
 supabase start
 
 # Extract the key values from the output
-anon_key=$(supabase status --output json | grep -o '"anon_key": "[^"]*' | cut -d'"' -f4)
-service_role_key=$(supabase status --output json | grep -o '"service_role_key": "[^"]*' | cut -d'"' -f4)
+echo -e "\n${YELLOW}Retrieving Supabase keys...${NC}"
+
+# Try different methods to get the keys based on CLI version
+anon_key=""
+service_role_key=""
+
+# First try with --output json if supported
+if supabase status --help | grep -q -- "--output"; then
+    echo -e "${YELLOW}Using JSON output method...${NC}"
+    status_output=$(supabase status --output json 2>/dev/null)
+    
+    if [ $? -eq 0 ] && [ ! -z "$status_output" ]; then
+        anon_key=$(echo "$status_output" | grep -o '"anon_key": "[^"]*' | cut -d'"' -f4)
+        service_role_key=$(echo "$status_output" | grep -o '"service_role_key": "[^"]*' | cut -d'"' -f4)
+    fi
+fi
+
+# If that didn't work, try parsing text output
+if [ -z "$anon_key" ] || [ -z "$service_role_key" ]; then
+    echo -e "${YELLOW}Using text parsing method...${NC}"
+    status_output=$(supabase status)
+    
+    anon_key=$(echo "$status_output" | grep "anon key:" | awk '{print $3}')
+    service_role_key=$(echo "$status_output" | grep "service_role key:" | awk '{print $3}')
+fi
 
 if [ -z "$anon_key" ] || [ -z "$service_role_key" ]; then
-    echo -e "${RED}Failed to retrieve Supabase keys. Please check if Supabase is running.${NC}"
-    echo -e "${YELLOW}You can try manually starting Supabase with: supabase start${NC}"
-    exit 1
+    echo -e "${RED}Failed to retrieve Supabase keys automatically.${NC}"
+    echo -e "${YELLOW}Please check the Supabase startup output above and enter the keys manually:${NC}"
+    
+    echo -e "${YELLOW}Enter the anon key:${NC}"
+    read -r anon_key
+    
+    echo -e "${YELLOW}Enter the service role key:${NC}"
+    read -r service_role_key
+    
+    if [ -z "$anon_key" ] || [ -z "$service_role_key" ]; then
+        echo -e "${RED}Keys cannot be empty. Exiting.${NC}"
+        exit 1
+    fi
 fi
 
 # Create or update .env.local file
