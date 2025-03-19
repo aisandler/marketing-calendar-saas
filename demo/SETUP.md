@@ -88,10 +88,11 @@ Create a `.env.local` file in your project root:
 cat > .env.local << EOF
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 EOF
 ```
 
-Replace the anon key with the one from your Supabase startup output.
+Replace the anon key and service role key with those from your Supabase startup output.
 
 ## Step 5: Initialize Database Schema
 
@@ -136,7 +137,32 @@ The script will output progress information as it runs, and should complete in 1
 
 ## Step 7: Set Up Authentication
 
-For the demo users to work, you need to set them up in Supabase Authentication:
+For the demo users to work, you need to set them up in Supabase Authentication. We've provided a helper script to automate this process:
+
+### Using the Automated Script (Recommended)
+
+First, ensure that your `.env.local` file includes the `SUPABASE_SERVICE_ROLE_KEY` as shown in Step 4.
+
+Then install the required dependency:
+
+```bash
+npm install node-fetch
+```
+
+Run the authentication setup script:
+
+```bash
+node demo/data/user_auth_setup.js
+```
+
+This script will:
+1. Create all demo users with the password `password123`
+2. Skip any users that already exist
+3. Provide a summary of the user creation process
+
+### Manual Setup in Supabase Studio
+
+If you prefer to set up users manually:
 
 1. Open Supabase Studio at http://127.0.0.1:54323
 2. Go to Authentication → Users
@@ -145,21 +171,6 @@ For the demo users to work, you need to set them up in Supabase Authentication:
    - Email: `admin.demo@example.com`
    - Password: Create a simple password like `password123`
 5. Repeat for other users you want to test with
-
-Alternatively, you can use the Supabase API to automate this process:
-
-```bash
-# Example: Add a user through the API
-curl -X POST 'http://localhost:54321/auth/v1/admin/users' \
--H 'apikey: YOUR_SERVICE_ROLE_KEY' \
--H 'Authorization: Bearer YOUR_SERVICE_ROLE_KEY' \
--H 'Content-Type: application/json' \
--d '{
-  "email": "admin.demo@example.com",
-  "password": "password123",
-  "email_confirm": true
-}'
-```
 
 ## Step 8: Start the Application
 
@@ -173,7 +184,7 @@ Open your browser to http://localhost:3000 and log in with one of the demo users
 - Manager: `manager1.demo@example.com`
 - Contributor: `designer1.demo@example.com`
 
-Use the password you created in step 7.
+Use the password `password123` (or whichever password you set in the previous step).
 
 ## Troubleshooting
 
@@ -191,7 +202,9 @@ Use the password you created in step 7.
 
 ### Authentication Issues
 - If login fails, check the Studio User Management panel to ensure users exist
-- Verify RLS policies are correctly disabled/enabled
+- Verify the correct password is being used
+- Check for any errors in the browser console
+- If using the automation script, ensure the service role key is correctly set in your `.env.local` file
 
 ## Re-enabling RLS (if needed)
 
