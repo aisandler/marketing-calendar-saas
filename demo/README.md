@@ -18,49 +18,109 @@ This enables effective demonstration of the application's resource management fe
 
 ### Prerequisites
 
-1. A local Supabase instance running
-2. The database schema already set up (tables, functions, etc.)
-3. RLS temporarily disabled (for easier data insertion)
+1. Node.js and npm installed on your machine
+2. Git installed on your machine
+3. Docker installed (required for local Supabase)
 
-### Configuration
+### Step 1: Install Supabase CLI
 
-1. Ensure your local environment is properly set up with the `.env.local` file pointing to your local Supabase instance:
+First, you need to install the Supabase CLI which will manage your local Supabase instance:
 
+**macOS:**
+```bash
+brew install supabase/tap/supabase
 ```
-NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+
+**Windows (using Scoop):**
+```bash
+scoop bucket add supabase https://github.com/supabase/scoop-bucket.git
+scoop install supabase
 ```
 
-2. Start your local Supabase instance:
+**Linux/Windows WSL:**
+```bash
+curl -s https://raw.githubusercontent.com/supabase/supabase/master/bin/supabase-linux-amd64 | sudo tar -xz -C /usr/local/bin
+```
+
+### Step 2: Initialize and Start Local Supabase
+
+Navigate to your project root directory and initialize a local Supabase project:
 
 ```bash
+# Navigate to your project directory if not already there
+cd marketing-cal-bolt
+
+# Initialize Supabase project locally
+supabase init
+
+# Start the Supabase services
 supabase start
 ```
 
-### Running the Demo Data Generation
+This will start a local Supabase instance with:
+- PostgreSQL database
+- API server
+- Studio (web UI for managing your database)
 
-You can run the complete demo data generation in two ways:
+When the instance starts, it will output:
+- The local API URL (typically http://127.0.0.1:54321)
+- The anon key and service role key
+- The Studio URL (typically http://127.0.0.1:54323)
 
-#### Option 1: Run the master script
+### Step 3: Set Up Local Environment Variables
+
+Create or update your `.env.local` file with the Supabase credentials:
 
 ```bash
+# Create .env.local file
+cat > .env.local << EOF
+NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[YOUR_ANON_KEY_FROM_PREVIOUS_STEP]
+EOF
+```
+
+### Step 4: Initialize Database Schema
+
+The Supabase instance needs the application schema before we can add demo data. Run migrations to set up the tables:
+
+```bash
+# If you have a migrations script, run it:
+npm run migrate:local
+
+# Alternatively, if you have SQL files for schema setup:
+psql -h localhost -p 54321 -U postgres -d postgres -f supabase/migrations/schema.sql
+```
+
+### Step 5: Run Demo Data Generation
+
+Now you're ready to run the demo data generation scripts:
+
+```bash
+# Run the master script that will generate all demo data
 psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/generate_all_demo_data.sql
 ```
 
-#### Option 2: Run individual scripts sequentially
+### Step 6: Access the Application with Demo Data
 
-If you prefer to run scripts individually or need to debug specific steps:
-
+1. Start your application:
 ```bash
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/01_setup.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/02_users.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/03_teams_resources.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/04_brands.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/05_campaigns.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/06_briefs_part1.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/06_briefs_part2.sql
-psql -h localhost -p 54321 -U postgres -d postgres -f demo/data/07_brief_history.sql
+npm run dev
 ```
+
+2. Open your browser and go to `http://localhost:3000`
+
+3. Log in with one of the demo users:
+   - Admin: `admin.demo@example.com` 
+   - Manager: `manager1.demo@example.com`
+   - Contributor: `designer1.demo@example.com`
+
+   Password for all demo users: `password123` (or the default development password for your Supabase setup)
+
+### Troubleshooting
+
+- **Database connection issues**: Ensure Docker is running and the Supabase services are up with `supabase status`
+- **Migration errors**: Check if tables already exist with `psql -h localhost -p 54321 -U postgres -d postgres -c "\dt"`
+- **Login issues**: You may need to create the users in Supabase Auth. Visit the Supabase Studio at http://127.0.0.1:54323 and add the users manually
 
 ### Re-enabling RLS (if needed)
 
