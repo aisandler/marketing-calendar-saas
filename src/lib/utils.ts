@@ -74,11 +74,11 @@ export function getStatusColor(status: string): string {
     case 'draft':
       return 'bg-gray-100 text-gray-800';
     case 'pending_approval':
-      return 'bg-yellow-100 text-yellow-800';
+      return 'bg-amber-100 text-amber-800';
     case 'approved':
-      return 'bg-green-100 text-green-800';
-    case 'in_progress':
       return 'bg-blue-100 text-blue-800';
+    case 'in_progress':
+      return 'bg-indigo-100 text-indigo-800';
     case 'review':
       return 'bg-purple-100 text-purple-800';
     case 'complete':
