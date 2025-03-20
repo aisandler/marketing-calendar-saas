@@ -1,0 +1,146 @@
+/* Dashboard Calendar Styles to match MarketingCalendar component */
+
+/* Overall calendar container */
+.fc {
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 0.875rem;
+}
+
+/* Header styles */
+.fc .fc-toolbar {
+  margin-bottom: 0.75rem !important;
+}
+
+.fc .fc-toolbar-title {
+  font-size: 1.125rem !important;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Button styles */
+.fc .fc-button {
+  background-color: #f9fafb !important;
+  border-color: #e5e7eb !important;
+  color: #4b5563 !important;
+  font-weight: 500;
+  text-transform: none !important;
+  padding: 0.375rem 0.75rem !important;
+  font-size: 0.875rem !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+.fc .fc-button:hover {
+  background-color: #f3f4f6 !important;
+}
+
+.fc .fc-button-primary:not(:disabled).fc-button-active,
+.fc .fc-button-primary:not(:disabled):active {
+  background-color: #6366f1 !important;
+  border-color: #6366f1 !important;
+  color: #ffffff !important;
+}
+
+/* Day headings */
+.fc .fc-col-header-cell {
+  background-color: #f9fafb;
+  padding: 0.5rem 0;
+}
+
+.fc .fc-col-header-cell-cushion {
+  padding: 0.5rem;
+  font-weight: 500;
+  color: #4b5563;
+}
+
+/* Today styling */
+.fc .fc-day-today {
+  background-color: #eff6ff !important; /* light blue for today */
+}
+
+/* Day cells */
+.fc .fc-daygrid-day {
+  transition: background-color 0.2s;
+}
+
+.fc .fc-daygrid-day:hover {
+  background-color: #f3f4f6;
+}
+
+.fc .fc-daygrid-day-frame {
+  min-height: 6rem;
+}
+
+.fc .fc-daygrid-day-number {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* Event styling */
+.fc-event {
+  border-width: 0 !important;
+  border-radius: 0.25rem !important;
+  margin: 0.125rem 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+}
+
+.fc-event.brief-event {
+  border-left: 2px solid #10b981 !important;
+}
+
+.fc-event.campaign-event {
+  border-left: 2px solid #6366f1 !important;
+}
+
+.fc-daygrid-event-dot {
+  display: none !important;
+}
+
+/* More events indicator */
+.fc-daygrid-more-link {
+  color: #6366f1 !important;
+  font-size: 0.75rem !important;
+  padding: 0.125rem 0.25rem !important;
+  background-color: #eff6ff !important;
+  border-radius: 0.25rem !important;
+}
+
+.fc-daygrid-more-link:hover {
+  background-color: #dbeafe !important;
+  text-decoration: none !important;
+}
+
+/* Tooltip styles */
+.tippy-box[data-theme~='light-border'] {
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  color: #1f2937;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* List view styles */
+.fc-list-day {
+  background-color: #f9fafb !important;
+}
+
+.fc-list-event {
+  cursor: pointer !important;
+}
+
+.fc-list-event td {
+  padding: 0.5rem 0.75rem !important;
+}
+
+.fc-list-event:hover td {
+  background-color: #f3f4f6 !important;
+}
+
+/* Week view */
+.fc-timegrid-event {
+  border-radius: 0.25rem !important;
+  padding: 0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+} 

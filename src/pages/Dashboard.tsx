@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Card, Title, Text, BarChart, DonutChart } from '@tremor/react';
@@ -13,8 +13,11 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { Brief, Resource, BriefStatus } from '../types';
 import { DashboardCharts } from '../components/DashboardCharts';
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@tremor/react';
-import tippy from 'tippy.js';
+import tippy, { hideAll as tippyHideAll } from 'tippy.js';
 import 'tippy.js/dist/tippy.css';
+
+// Add CSS to make the calendar match the MarketingCalendar component
+import './DashboardCalendar.css';
 
 interface Campaign {
   id: string;
@@ -57,14 +60,20 @@ const Dashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [resources, setResources] = useState<Resource[]>([]);
   const [briefs, setBriefs] = useState<Brief[]>([]);
+  // Add state for tracking event visibility
+  const [showBriefs, setShowBriefs] = useState(true);
+  const [showCampaigns, setShowCampaigns] = useState(true);
 
   const getStatusColor = (status: string) => {
     const colors: { [key: string]: string } = {
       'draft': '#818cf8', // indigo-400
       'pending_approval': '#fbbf24', // amber-400
       'in_progress': '#34d399', // emerald-400
+      'review': '#a855f7', // purple-500
+      'complete': '#10b981', // emerald-500
       'completed': '#8b5cf6', // violet-500
-      'on_hold': '#f87171', // red-400
+      'cancelled': '#f87171', // red-400
+      'active': '#6366f1', // indigo-500
     };
     return colors[status] || '#6b7280'; // gray-500 default
   };
@@ -176,6 +185,12 @@ const Dashboard = () => {
 
   useEffect(() => {
     document.title = "Dashboard | Marketing Calendar";
+    
+    // Cleanup function for Tippy tooltips
+    return () => {
+      // Use the tippyHideAll function to clean up any tooltips when component unmounts
+      tippyHideAll();
+    };
   }, []);
 
   // Calendar event handling
@@ -309,51 +324,59 @@ const Dashboard = () => {
   };
 
   // Improved calendar events for better visual appearance
-  const enhancedCalendarEvents = [
-    // Brief events
-    ...stats.upcomingDeadlines.map(brief => ({
-      id: `brief-${brief.id}`,
-      title: `📝 ${brief.title}`,
-      start: new Date(brief.due_date).toISOString(),
-      allDay: true,
-      backgroundColor: getStatusColor(brief.status),
-      borderColor: getStatusColor(brief.status),
-      url: `/briefs/${brief.id}`,
-      extendedProps: {
-        type: 'brief',
-        status: brief.status,
-        channel: brief.channel
-      }
-    })),
-    // Campaign events - limited to show only 30 days from start to improve appearance
-    ...stats.campaigns.map(campaign => {
-      const startDate = new Date(campaign.start_date);
-      const endDate = campaign.end_date ? new Date(campaign.end_date) : new Date(startDate);
-      
-      // Limit campaigns to display only 30 days at most in the calendar view
-      const displayEndDate = new Date(startDate);
-      displayEndDate.setDate(displayEndDate.getDate() + 30);
-      
-      // Use the earlier of the actual end date or the 30-day limit
-      const effectiveEndDate = endDate < displayEndDate ? endDate : displayEndDate;
-      
-      return {
-        id: `campaign-${campaign.id}`,
-        title: `🎯 ${campaign.name}`,
-        start: startDate.toISOString(),
-        end: effectiveEndDate.toISOString(),
-        allDay: true,
-        backgroundColor: '#3b82f660', // blue-500 with less opacity
-        borderColor: '#3b82f6',
-        url: `/campaigns/${campaign.id}`,
-        extendedProps: {
-          type: 'campaign',
-          status: campaign.status,
-          brand: campaign.brand?.name
-        }
-      };
-    })
-  ];
+  const enhancedCalendarEvents = useMemo(() => {
+    const events = [];
+    
+    // Brief events - only if they should be shown
+    if (showBriefs) {
+      events.push(
+        ...stats.upcomingDeadlines.map(brief => ({
+          id: `brief-${brief.id}`,
+          title: brief.title,
+          start: new Date(brief.due_date).toISOString(),
+          allDay: true,
+          extendedProps: {
+            type: 'brief',
+            status: brief.status,
+            channel: brief.channel,
+            resource: resources.find(r => r.id === brief.resource_id)?.name || 'Unassigned'
+          }
+        }))
+      );
+    }
+    
+    // Campaign events - only if they should be shown
+    if (showCampaigns) {
+      events.push(
+        ...stats.campaigns.map(campaign => {
+          const startDate = new Date(campaign.start_date);
+          const endDate = campaign.end_date ? new Date(campaign.end_date) : new Date(startDate);
+          
+          // Limit campaigns to display only 30 days at most in the calendar view
+          const displayEndDate = new Date(startDate);
+          displayEndDate.setDate(displayEndDate.getDate() + 30);
+          
+          // Use the earlier of the actual end date or the 30-day limit
+          const effectiveEndDate = endDate < displayEndDate ? endDate : displayEndDate;
+          
+          return {
+            id: `campaign-${campaign.id}`,
+            title: campaign.name,
+            start: startDate.toISOString(),
+            end: effectiveEndDate.toISOString(),
+            allDay: true,
+            extendedProps: {
+              type: 'campaign',
+              status: campaign.status,
+              brand: campaign.brand?.name
+            }
+          };
+        })
+      );
+    }
+    
+    return events;
+  }, [stats.upcomingDeadlines, stats.campaigns, resources, showBriefs, showCampaigns]);
 
   console.log('Calendar Events:', enhancedCalendarEvents); // Debug log
 
@@ -598,67 +621,50 @@ const Dashboard = () => {
         >
           <div className="flex justify-between items-center mb-4">
             <div>
-              <Title className="text-lg font-bold text-gray-900">Content Calendar</Title>
-              <Text className="text-sm text-gray-500">Upcoming campaigns and brief deadlines</Text>
+              <Title className="text-lg font-bold text-gray-900">Marketing Calendar</Title>
+              <Text className="text-sm text-gray-500">Upcoming campaigns and content deadlines</Text>
             </div>
-            <div className="flex space-x-2">
-              <div className="flex items-center space-x-1">
-                <span className="w-3 h-3 rounded-full bg-blue-400"></span>
-                <span className="text-xs text-gray-600">Campaigns</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  id="show-campaigns"
+                  checked={showCampaigns}
+                  onChange={() => setShowCampaigns(!showCampaigns)}
+                  className="w-3 h-3 text-blue-500 rounded"
+                />
+                <label htmlFor="show-campaigns" className="flex items-center gap-1 cursor-pointer">
+                  <span className="w-3 h-3 rounded-full bg-blue-400"></span>
+                  <span className="text-xs text-gray-600">Campaigns</span>
+                </label>
               </div>
-              <div className="flex items-center space-x-1">
-                <span className="w-3 h-3 rounded-full bg-rose-400"></span>
-                <span className="text-xs text-gray-600">Briefs</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  id="show-briefs"
+                  checked={showBriefs}
+                  onChange={() => setShowBriefs(!showBriefs)}
+                  className="w-3 h-3 text-emerald-500 rounded"
+                />
+                <label htmlFor="show-briefs" className="flex items-center gap-1 cursor-pointer">
+                  <span className="w-3 h-3 rounded-full bg-emerald-400"></span>
+                  <span className="text-xs text-gray-600">Briefs</span>
+                </label>
               </div>
-              <div className="ml-2 border-l pl-2 flex items-center space-x-3">
-                <button
-                  className="p-1 rounded hover:bg-gray-100"
-                  title="Show/Hide Campaigns"
-                  onClick={() => {
-                    const calendarEl = document.querySelector('.fc') as HTMLElement;
-                    // @ts-ignore - FullCalendar API is not fully typed
-                    const calendarApi = calendarEl?.getApi?.();
-                    if (calendarApi) {
-                      // Toggle campaign visibility
-                      const campaignEvents = calendarApi.getEvents()
-                        .filter((event: any) => event.extendedProps.type === 'campaign');
-                      
-                      // Check if campaigns are currently visible
-                      const isVisible = campaignEvents.length > 0 && 
-                                      campaignEvents[0].display !== 'none';
-                      
-                      campaignEvents.forEach((event: any) => 
-                        event.setProp('display', isVisible ? 'none' : 'block')
-                      );
-                    }
-                  }}
-                >
-                  <Briefcase className="h-4 w-4 text-gray-500" />
-                </button>
-                <button
-                  className="p-1 rounded hover:bg-gray-100"
-                  title="Show/Hide Briefs"
-                  onClick={() => {
-                    const calendarEl = document.querySelector('.fc') as HTMLElement;
-                    // @ts-ignore - FullCalendar API is not fully typed
-                    const calendarApi = calendarEl?.getApi?.();
-                    if (calendarApi) {
-                      // Toggle brief visibility
-                      const briefEvents = calendarApi.getEvents()
-                        .filter((event: any) => event.extendedProps.type === 'brief');
-                      
-                      // Check if briefs are currently visible
-                      const isVisible = briefEvents.length > 0 && 
-                                      briefEvents[0].display !== 'none';
-                      
-                      briefEvents.forEach((event: any) => 
-                        event.setProp('display', isVisible ? 'none' : 'block')
-                      );
-                    }
-                  }}
-                >
-                  <FileText className="h-4 w-4 text-gray-500" />
-                </button>
+              <div className="hidden sm:flex items-center gap-1 ml-2">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                  Pending
+                </span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                  In Progress
+                </span>
+              </div>
+              <div className="hidden sm:flex items-center gap-1">
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                  Complete
+                </span>
               </div>
             </div>
           </div>
@@ -684,28 +690,62 @@ const Dashboard = () => {
               eventContent={(eventInfo) => {
                 const type = eventInfo.event.extendedProps.type;
                 const status = eventInfo.event.extendedProps.status;
+                // Match the style of MarketingCalendar component
+                const statusColorClass = (() => {
+                  const statusKey = status ? status.toLowerCase() : 'default';
+                  switch (statusKey) {
+                    case 'draft':
+                      return 'bg-gray-100 text-gray-800';
+                    case 'pending_approval':
+                      return 'bg-amber-100 text-amber-800';
+                    case 'approved':
+                      return 'bg-blue-100 text-blue-800';
+                    case 'in_progress':
+                      return 'bg-indigo-100 text-indigo-800';
+                    case 'review':
+                      return 'bg-purple-100 text-purple-800';
+                    case 'complete':
+                      return 'bg-emerald-100 text-emerald-800';
+                    case 'cancelled':
+                      return 'bg-red-100 text-red-800';
+                    case 'active':
+                      return 'bg-indigo-100 text-indigo-800';
+                    default:
+                      return 'bg-gray-100 text-gray-800';
+                  }
+                })();
+                
                 return (
-                  <div className="p-1">
-                    <div className="font-medium truncate flex items-center">
-                      {type === 'brief' ? '📝' : '🎯'} 
-                      <span className="ml-1">{eventInfo.event.title.replace(/^(📝|🎯) /, '')}</span>
+                  <div className={`p-1 rounded ${statusColorClass} ${
+                    type === 'campaign' ? 'border-l-2 border-indigo-400' : 'border-l-2 border-emerald-400'
+                  }`}>
+                    <div className="font-medium truncate flex items-center text-xs">
+                      {type === 'campaign' ? '📅 ' : '📝 '} 
+                      <span className="ml-1 truncate">{eventInfo.event.title.replace(/^(📝|🎯) /, '')}</span>
                     </div>
-                    <div className="text-xs opacity-75 flex items-center justify-between">
-                      <span>
-                        {type === 'brief' ? eventInfo.event.extendedProps.channel : eventInfo.event.extendedProps.brand}
-                      </span>
-                      {type === 'brief' && status && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100">
-                          {status.replace('_', ' ')}
-                        </span>
-                      )}
-                    </div>
+                    {(type === 'brief' && eventInfo.view.type !== 'dayGridMonth') && (
+                      <div className="text-xs opacity-75 mt-1">
+                        {eventInfo.event.extendedProps.channel || 'No channel'}
+                      </div>
+                    )}
                   </div>
                 );
               }}
-              dayCellClassNames="hover:bg-blue-50"
+              dayCellClassNames={(args) => {
+                if (args.isToday) {
+                  return 'bg-blue-50';
+                }
+                return 'hover:bg-blue-50';
+              }}
+              dayHeaderClassNames="text-gray-500 text-sm py-2"
               eventClassNames={(info) => {
-                return info.event.extendedProps.type === 'brief' ? 'brief-event' : 'campaign-event';
+                return [
+                  'border-0',
+                  'rounded',
+                  'shadow-sm',
+                  'overflow-hidden',
+                  info.event.extendedProps.type === 'brief' ? 'brief-event' : 'campaign-event'
+                ];
               }}
               eventDidMount={(info) => {
                 // Add tooltip with additional information
@@ -730,6 +770,14 @@ const Dashboard = () => {
                   arrow: true
                 });
               }}
+              // Add these custom styling options to match the MarketingCalendar
+              buttonText={{
+                today: 'Today',
+                month: 'Month',
+                week: 'Week',
+                list: 'List'
+              }}
+              dayMaxEventRows={3}
             />
           </div>
         </Card>
