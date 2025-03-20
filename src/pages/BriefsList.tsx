@@ -1472,7 +1472,10 @@ const BriefsList = () => {
                   {groupBriefs.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {groupBriefs.map((brief) => (
-                        <div key={brief.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow transition-shadow duration-200 relative overflow-hidden">
+                        <div 
+                          key={brief.id} 
+                          className={`bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow transition-shadow duration-200 relative overflow-hidden border-l-4 ${getMediaTypeColor(brief.channel)}`}
+                        >
                           {getPriorityIndicator(brief, true)}
                           <div className="p-4">
                             <div className="flex justify-between items-start mb-2">
