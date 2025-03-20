@@ -845,7 +845,7 @@ const BriefsList = () => {
                     className={getColumnHeaderClass('status')}
                     onClick={() => handleSort('status')}
                     title="Click to sort by status"
-                    style={{ width: '120px' }}
+                    style={{ width: '140px' }}
                   >
                     <div className="flex items-center">
                       Status
@@ -923,9 +923,25 @@ const BriefsList = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50">
-                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
-                          {brief.status.replace('_', ' ')}
-                        </span>
+                        <select
+                          className={`px-2 py-1 text-xs rounded cursor-pointer appearance-none pr-7 relative ${getStatusColor(brief.status)} focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+                          value={brief.status}
+                          onChange={(e) => handleStatusChange(brief.id, e.target.value)}
+                          style={{ 
+                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                            backgroundPosition: 'right 0.2rem center',
+                            backgroundRepeat: 'no-repeat',
+                            backgroundSize: '1em 1em'
+                          }}
+                        >
+                          <option value="draft">Draft</option>
+                          <option value="pending_approval">Pending Approval</option>
+                          <option value="approved">Approved</option>
+                          <option value="in_progress">In Progress</option>
+                          <option value="review">Review</option>
+                          <option value="complete">Complete</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.brand?.name || 'Unknown'}>
                         {brief.brand?.name || 'Unknown'}
@@ -961,20 +977,6 @@ const BriefsList = () => {
                               <Archive size={16} />
                             </button>
                           </div>
-                          <select
-                            className="ml-1 text-xs border border-gray-300 rounded py-1 px-1 bg-white hover:bg-gray-50"
-                            value={brief.status}
-                            onChange={(e) => handleStatusChange(brief.id, e.target.value)}
-                            title="Change Status"
-                          >
-                            <option value="draft">Draft</option>
-                            <option value="pending_approval">Pending Approval</option>
-                            <option value="approved">Approved</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="review">Review</option>
-                            <option value="complete">Complete</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
                         </div>
                       </td>
                     </tr>
