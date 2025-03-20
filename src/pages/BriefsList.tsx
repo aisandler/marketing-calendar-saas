@@ -66,6 +66,7 @@ const BriefsList = () => {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const [filterCount, setFilterCount] = useState(0);
+  const [showCompleted, setShowCompleted] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -209,6 +210,7 @@ const BriefsList = () => {
     if (resourceFilter) count++;
     if (brandFilter) count++;
     if (mediaTypeFilter) count++;
+    // Don't count showCompleted as a filter since it's a view preference
     setFilterCount(count);
   }, [searchQuery, statusFilter, resourceFilter, brandFilter, mediaTypeFilter]);
 
@@ -320,6 +322,11 @@ const BriefsList = () => {
   };
 
   const filteredBriefs = briefs.filter(brief => {
+    // First filter out completed briefs if showCompleted is false
+    if (!showCompleted && brief.status === 'complete') {
+      return false;
+    }
+    
     // Apply search query
     if (searchQuery && !brief.title.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
@@ -394,6 +401,9 @@ const BriefsList = () => {
     // Reverse comparison if sort direction is descending
     return sortDirection === 'asc' ? comparison : -comparison;
   });
+
+  // Count completed briefs that aren't shown
+  const completedBriefsCount = !showCompleted ? briefs.filter(brief => brief.status === 'complete').length : 0;
 
   // Get background color for utilization bar
   const getUtilizationBgColor = (percent: number) => {
@@ -796,6 +806,28 @@ const BriefsList = () => {
             )}
           </div>
         )}
+        
+        {/* Completed briefs toggle */}
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="show-completed"
+              checked={showCompleted}
+              onChange={(e) => setShowCompleted(e.target.checked)}
+              className="mr-2 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="show-completed" className="font-medium text-gray-700">
+              Show completed briefs
+            </label>
+          </div>
+          
+          {completedBriefsCount > 0 && !showCompleted && (
+            <span className="text-gray-500 italic">
+              {completedBriefsCount} completed {completedBriefsCount === 1 ? 'brief' : 'briefs'} hidden
+            </span>
+          )}
+        </div>
       </div>
 
       {viewMode === 'list' ? (
