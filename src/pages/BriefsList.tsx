@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -484,6 +484,65 @@ const BriefsList = () => {
     }
   };
 
+  // Function to handle brief duplication
+  const handleDuplicate = async (brief: Brief) => {
+    try {
+      // Create a new brief based on the existing one, but omit the id
+      const { id, ...briefWithoutId } = brief;
+      const newBrief = {
+        ...briefWithoutId,
+        title: `Copy of ${brief.title}`,
+        status: 'draft',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('briefs')
+        .insert([newBrief])
+        .select();
+      
+      if (error) {
+        console.error('Error duplicating brief:', error);
+        alert('Failed to duplicate brief');
+        return;
+      }
+      
+      // Refresh the briefs list to show the new brief
+      window.location.reload();
+      
+    } catch (error) {
+      console.error('Error duplicating brief:', error);
+      alert('An unexpected error occurred');
+    }
+  };
+  
+  // Function to handle brief archiving
+  const handleArchive = async (briefId: string) => {
+    try {
+      // Update the brief status to "archived"
+      const { error } = await supabase
+        .from('briefs')
+        .update({ status: 'cancelled' })
+        .eq('id', briefId);
+      
+      if (error) {
+        console.error('Error archiving brief:', error);
+        alert('Failed to archive brief');
+        return;
+      }
+      
+      // Update the status in the local state
+      setBriefs(briefs.map(brief => 
+        brief.id === briefId ? { ...brief, status: 'cancelled' } : brief
+      ));
+      
+    } catch (error) {
+      console.error('Error archiving brief:', error);
+      alert('An unexpected error occurred');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -843,6 +902,31 @@ const BriefsList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
                         {brief.created_by_user?.name || 'Unknown'}
+                        
+                        {/* Inline action buttons - only show on hover */}
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex space-x-2">
+                          <Link 
+                            to={`/briefs/${brief.id}`}
+                            className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                            title="View Brief"
+                          >
+                            <Eye size={16} />
+                          </Link>
+                          <button
+                            onClick={() => handleDuplicate(brief)}
+                            className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                            title="Duplicate Brief"
+                          >
+                            <Copy size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleArchive(brief.id)}
+                            className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                            title="Archive Brief"
+                          >
+                            <Archive size={16} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))
