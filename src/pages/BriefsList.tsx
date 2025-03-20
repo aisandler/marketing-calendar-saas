@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -68,6 +68,45 @@ const BriefsList = () => {
   const [filterCount, setFilterCount] = useState(0);
   const [showCompleted, setShowCompleted] = useState(false);
   const [resourceUtilization, setResourceUtilization] = useState<Record<string, number>>({});
+
+  // Sort options dropdown for card view
+  const sortOptions = [
+    { label: 'Due Date (Ascending)', field: 'due_date', direction: 'asc' },
+    { label: 'Due Date (Descending)', field: 'due_date', direction: 'desc' },
+    { label: 'Title (A-Z)', field: 'title', direction: 'asc' },
+    { label: 'Title (Z-A)', field: 'title', direction: 'desc' },
+    { label: 'Status', field: 'status', direction: 'asc' },
+    { label: 'Media Type', field: 'channel', direction: 'asc' },
+  ];
+  
+  // Generate a sort key for React animation
+  const getSortKey = (brief: Brief) => {
+    let key = '';
+    switch (sortField) {
+      case 'title':
+        key = brief.title;
+        break;
+      case 'due_date':
+        key = brief.due_date;
+        break;
+      case 'status':
+        key = brief.status;
+        break;
+      case 'channel':
+        key = brief.channel || '';
+        break;
+      default:
+        key = brief.id;
+    }
+    return sortDirection === 'asc' ? key : `reverse_${key}`;
+  };
+  
+  // Handle sort option selection from dropdown
+  const handleSortOptionChange = (option: string) => {
+    const [field, direction] = option.split(':');
+    setSortField(field);
+    setSortDirection(direction as 'asc' | 'desc');
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1129,12 +1168,49 @@ const BriefsList = () => {
       ) : viewMode === 'card' ? (
         // Card view - enhanced with better styling
         <div className="bg-white shadow rounded-lg p-6">
+          {/* Card view sorting controls */}
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-sm font-medium text-gray-700">
+              Showing {filteredBriefs.length} {filteredBriefs.length === 1 ? 'brief' : 'briefs'}
+            </h3>
+            
+            <div className="flex items-center">
+              <label htmlFor="card-sort" className="mr-2 text-sm text-gray-600">Sort by:</label>
+              <div className="relative">
+                <select
+                  id="card-sort"
+                  value={`${sortField}:${sortDirection}`}
+                  onChange={(e) => handleSortOptionChange(e.target.value)}
+                  className="block w-52 pr-8 pl-3 py-2 text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {sortOptions.map((option) => (
+                    <option 
+                      key={`${option.field}-${option.direction}`} 
+                      value={`${option.field}:${option.direction}`}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
+                  <ArrowUpDown size={16} />
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Cards grid with animation */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
             {filteredBriefs.length > 0 ? (
               filteredBriefs.map((brief) => (
                 <div 
-                  key={brief.id} 
-                  className={`border-l-4 ${getMediaTypeColor(brief.channel)} rounded-lg overflow-hidden shadow hover:shadow-md transition-all duration-150 relative group bg-white hover:translate-y-[-2px]`}
+                  key={brief.id}
+                  className={`border-l-4 ${getMediaTypeColor(brief.channel)} rounded-lg overflow-hidden shadow hover:shadow-md transition-all duration-300 relative group bg-white hover:translate-y-[-2px]`}
+                  style={{
+                    animation: `fadeMove 0.5s ease-out`,
+                    transformOrigin: 'center'
+                  }}
+                  data-sort-key={getSortKey(brief)}
                 >
                   {/* Card Header */}
                   <div className="p-5 border-b border-gray-100">
@@ -1253,6 +1329,20 @@ const BriefsList = () => {
           campaigns={campaigns}
         />
       )}
+
+      {/* CSS animations for card sorting */}
+      <style>{`
+        @keyframes fadeMove {
+          0% {
+            opacity: 0.7;
+            transform: translateY(10px);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>
   );
 };
