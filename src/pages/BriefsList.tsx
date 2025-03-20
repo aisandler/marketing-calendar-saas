@@ -857,6 +857,7 @@ const BriefsList = () => {
   useEffect(() => {
     setSortField('due_date');
     setSortDirection('asc');
+    setCurrentPage(1); // Reset pagination when view mode changes
   }, [viewMode]);
 
   // Pagination logic for grouped data
@@ -909,6 +910,11 @@ const BriefsList = () => {
   
   // Calculate total pages
   const totalItems = useMemo(() => {
+    // For timeline view, always use the total filtered briefs count
+    if (viewMode === 'timeline') {
+      return filteredBriefs.length;
+    }
+    
     if (groupBy === 'none') {
       return Object.values(groupedBriefs).reduce((sum, briefs) => sum + briefs.length, 0);
     } else {
@@ -917,7 +923,7 @@ const BriefsList = () => {
         return sum + (collapsedGroups[groupName] ? 0 : briefs.length);
       }, 0);
     }
-  }, [groupedBriefs, groupBy, collapsedGroups]);
+  }, [groupedBriefs, groupBy, collapsedGroups, filteredBriefs, viewMode]);
   
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   
@@ -1647,8 +1653,16 @@ const BriefsList = () => {
           ))}
         </div>
       ) : viewMode === 'timeline' ? (
-        // Timeline view
-        <BriefsTimeline briefs={filteredBriefs} />
+        // Timeline view - use paginated data
+        <div>
+          <BriefsTimeline 
+            briefs={
+              groupBy === 'none' 
+                ? paginatedBriefs['All Briefs'] 
+                : filteredBriefs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+            } 
+          />
+        </div>
       ) : (
         // Calendar view
         <MarketingCalendar 
