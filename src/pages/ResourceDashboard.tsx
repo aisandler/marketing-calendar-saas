@@ -3,15 +3,18 @@ import { supabase } from '../lib/supabase';
 import { Resource, Brief } from '../types';
 import MediaTypeUtilization from '../components/MediaTypeUtilization';
 import ResourceForecast from '../components/ResourceForecast';
+import ResourceDetail from '../components/ResourceDetail';
+import ResourceManagement from '../components/ResourceManagement';
 // Removed unused import
-import { BarChart3, Users, Briefcase, PieChart, TrendingUp } from 'lucide-react';
+import { BarChart3, Users, Briefcase, PieChart, TrendingUp, Settings } from 'lucide-react';
 
 const ResourceDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [resources, setResources] = useState<Resource[]>([]);
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'media-types' | 'capacity' | 'forecast'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'media-types' | 'capacity' | 'forecast' | 'management'>('overview');
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
   
   // Resource statistics
   const [totalResources, setTotalResources] = useState(0);
@@ -23,40 +26,41 @@ const ResourceDashboard = () => {
   const [overallocatedResources, setOverallocatedResources] = useState(0);
   const [mediaTypeStats, setMediaTypeStats] = useState<{ [key: string]: { count: number, capacity: number, allocated: number } }>({});
 
+  // Fetch data from the API
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch resources with all necessary fields
+      const { data: resourcesData, error: resourcesError } = await supabase
+        .from('resources')
+        .select('id, name, type, capacity_hours, hourly_rate, media_type, created_at, updated_at')
+        .order('name');
+      
+      if (resourcesError) throw resourcesError;
+      
+      // Fetch briefs for resource utilization
+      const { data: briefsData, error: briefsError } = await supabase
+        .from('briefs')
+        .select('id, title, status, start_date, due_date, resource_id, estimated_hours, brand_id, campaign_id, description')
+        .order('due_date');
+      
+      if (briefsError) throw briefsError;
+      
+      setResources(resourcesData);
+      setBriefs(briefsData);
+      
+      // Calculate statistics
+      calculateStatistics(resourcesData, briefsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      setError('Failed to load resource data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        
-        // Fetch resources with all necessary fields
-        const { data: resourcesData, error: resourcesError } = await supabase
-          .from('resources')
-          .select('id, name, type, capacity_hours, hourly_rate, media_type, created_at, updated_at')
-          .order('name');
-        
-        if (resourcesError) throw resourcesError;
-        
-        // Fetch briefs for resource utilization
-        const { data: briefsData, error: briefsError } = await supabase
-          .from('briefs')
-          .select('id, title, status, start_date, due_date, resource_id, estimated_hours')
-          .order('due_date');
-        
-        if (briefsError) throw briefsError;
-        
-        setResources(resourcesData);
-        setBriefs(briefsData);
-        
-        // Calculate statistics
-        calculateStatistics(resourcesData, briefsData);
-      } catch (error) {
-        console.error('Error fetching data:', error);
-        setError('Failed to load resource data');
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchData();
   }, []);
 
@@ -150,6 +154,20 @@ const ResourceDashboard = () => {
       .slice(0, 5);
   };
 
+  // Handle resource selection
+  const handleResourceClick = (resourceId: string) => {
+    setSelectedResourceId(resourceId);
+  };
+
+  const handleCloseDetail = () => {
+    setSelectedResourceId(null);
+  };
+
+  // Handle resource change (refresh data)
+  const handleResourceChange = () => {
+    fetchData();
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -222,6 +240,17 @@ const ResourceDashboard = () => {
             >
               <TrendingUp className="inline-block h-5 w-5 mr-2" />
               Resource Forecast
+            </button>
+            <button
+              onClick={() => setActiveTab('management')}
+              className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'management'
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <Settings className="inline-block h-5 w-5 mr-2" />
+              Manage Resources
             </button>
           </nav>
         </div>
@@ -371,7 +400,11 @@ const ResourceDashboard = () => {
               <div className="space-y-4">
                 {getTopAllocatedResources().map(resource => {
                   return (
-                    <div key={resource.id} className="group">
+                    <div 
+                      key={resource.id} 
+                      className="group cursor-pointer hover:bg-gray-50 rounded-md p-2 -m-2 transition-colors duration-150"
+                      onClick={() => handleResourceClick(resource.id)}
+                    >
                       <div className="flex items-center mb-1">
                         <span className="text-sm font-medium text-gray-700 w-40 truncate" title={resource.name}>
                           {resource.name}
@@ -493,8 +526,88 @@ const ResourceDashboard = () => {
             </div>
           </div>
           
+          {/* All Resources Table */}
+          <div className="mt-8">
+            <h4 className="text-md font-medium text-gray-800 mb-4">All Resources</h4>
+            <div className="overflow-hidden shadow ring-1 ring-black ring-opacity-5 md:rounded-lg">
+              <table className="min-w-full divide-y divide-gray-300">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-6">
+                      Resource Name
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Type
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Media Type
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Allocation
+                    </th>
+                    <th scope="col" className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">
+                      Utilization
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 bg-white">
+                  {resources.map(resource => {
+                    const allocated = briefs
+                      .filter(brief => brief.resource_id === resource.id)
+                      .reduce((sum, brief) => sum + (brief.estimated_hours || 0), 0);
+                    
+                    const capacity = resource.capacity_hours || 40;
+                    const utilization = capacity > 0 ? (allocated / capacity) * 100 : 0;
+                    
+                    return (
+                      <tr 
+                        key={resource.id} 
+                        className="hover:bg-gray-50 cursor-pointer"
+                        onClick={() => handleResourceClick(resource.id)}
+                      >
+                        <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-blue-600 hover:text-blue-800 sm:pl-6">
+                          {resource.name}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500 capitalize">
+                          {resource.type}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {resource.media_type || "Unspecified"}
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">
+                          {allocated} / {capacity} hours
+                        </td>
+                        <td className="whitespace-nowrap px-3 py-4 text-sm">
+                          <div className="flex items-center">
+                            <div className="w-24 h-2 bg-gray-200 rounded-full mr-2">
+                              <div 
+                                className={`h-full ${getUtilizationBgColor(utilization)} rounded-full`} 
+                                style={{ width: `${Math.min(utilization, 100)}%` }}
+                              ></div>
+                            </div>
+                            <span className={getUtilizationColor(utilization)}>
+                              {utilization.toFixed(0)}%
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  
+                  {resources.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-4 text-center text-sm text-gray-500">
+                        No resources found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
           {/* Capacity Planning Guidance */}
-          <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+          <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mt-8">
             <h4 className="text-md font-medium text-blue-800 mb-2">Capacity Planning Tips</h4>
             <ul className="list-disc pl-5 text-sm text-blue-700 space-y-2">
               <li>Aim to keep resource utilization between 70-80% to allow for unexpected work</li>
@@ -508,6 +621,17 @@ const ResourceDashboard = () => {
       
       {activeTab === 'forecast' && (
         <ResourceForecast />
+      )}
+      
+      {activeTab === 'management' && (
+        <ResourceManagement onResourceChange={handleResourceChange} />
+      )}
+      
+      {selectedResourceId && (
+        <ResourceDetail 
+          resourceId={selectedResourceId} 
+          onClose={handleCloseDetail} 
+        />
       )}
     </div>
   );
