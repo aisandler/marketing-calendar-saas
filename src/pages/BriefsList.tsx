@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -543,6 +543,32 @@ const BriefsList = () => {
     }
   };
 
+  // Function to handle brief status change
+  const handleStatusChange = async (briefId: string, newStatus: string) => {
+    try {
+      // Update the brief status
+      const { error } = await supabase
+        .from('briefs')
+        .update({ status: newStatus })
+        .eq('id', briefId);
+      
+      if (error) {
+        console.error('Error updating brief status:', error);
+        alert('Failed to update brief status');
+        return;
+      }
+      
+      // Update the status in the local state
+      setBriefs(briefs.map(brief => 
+        brief.id === briefId ? { ...brief, status: newStatus } : brief
+      ));
+      
+    } catch (error) {
+      console.error('Error updating brief status:', error);
+      alert('An unexpected error occurred');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -862,6 +888,13 @@ const BriefsList = () => {
                       {getSortIndicator('created_by')}
                     </div>
                   </th>
+                  <th 
+                    scope="col"
+                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    style={{ width: '140px' }}
+                  >
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -902,37 +935,53 @@ const BriefsList = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
                         {brief.created_by_user?.name || 'Unknown'}
-                        
-                        {/* Inline action buttons - only show on hover */}
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 flex space-x-2">
-                          <Link 
-                            to={`/briefs/${brief.id}`}
-                            className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                            title="View Brief"
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
+                        <div className="flex items-center space-x-3">
+                          <div className="flex space-x-1">
+                            <Link 
+                              to={`/briefs/${brief.id}`}
+                              className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                              title="View Brief"
+                            >
+                              <Eye size={16} />
+                            </Link>
+                            <button
+                              onClick={() => handleDuplicate(brief)}
+                              className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                              title="Duplicate Brief"
+                            >
+                              <Copy size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleArchive(brief.id)}
+                              className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                              title="Archive Brief"
+                            >
+                              <Archive size={16} />
+                            </button>
+                          </div>
+                          <select
+                            className="ml-1 text-xs border border-gray-300 rounded py-1 px-1 bg-white hover:bg-gray-50"
+                            value={brief.status}
+                            onChange={(e) => handleStatusChange(brief.id, e.target.value)}
+                            title="Change Status"
                           >
-                            <Eye size={16} />
-                          </Link>
-                          <button
-                            onClick={() => handleDuplicate(brief)}
-                            className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
-                            title="Duplicate Brief"
-                          >
-                            <Copy size={16} />
-                          </button>
-                          <button
-                            onClick={() => handleArchive(brief.id)}
-                            className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
-                            title="Archive Brief"
-                          >
-                            <Archive size={16} />
-                          </button>
+                            <option value="draft">Draft</option>
+                            <option value="pending_approval">Pending Approval</option>
+                            <option value="approved">Approved</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="review">Review</option>
+                            <option value="complete">Complete</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
                         </div>
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
                       No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
                         <button 
                           onClick={resetFilters}
