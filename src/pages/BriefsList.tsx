@@ -819,6 +819,12 @@ const BriefsList = () => {
     setSortDirection('asc');
   }, []);
 
+  // Reset sorting when view mode changes to ensure consistency
+  useEffect(() => {
+    setSortField('due_date');
+    setSortDirection('asc');
+  }, [viewMode]);
+
   // Pagination logic for grouped data
   const paginateGroupedData = (data: Record<string, Brief[]>) => {
     if (groupBy === 'none') {
@@ -1347,7 +1353,7 @@ const BriefsList = () => {
                         groupBriefs.map((brief) => (
                           <tr 
                             key={brief.id} 
-                            className="hover:bg-gray-50 transition-colors duration-150 relative group"
+                            className={`hover:bg-gray-50 transition-colors duration-150 relative group border-l-4 ${getMediaTypeColor(brief.channel)}`}
                           >
                             {/* Priority indicator should not cause column misalignment */}
                             <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50 relative">
