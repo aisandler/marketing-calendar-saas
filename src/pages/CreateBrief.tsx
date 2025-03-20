@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { AlertTriangle } from 'lucide-react';
 import type { User, Resource, Brief } from '../types';
+import { SpecificationsEditor } from '../components/ui/SpecificationsEditor';
 
 const briefSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
@@ -32,6 +33,7 @@ const briefSchema = z.object({
   description: z.string().nullable().optional(),
   estimated_hours: z.number().nullable().optional(),
   expenses: z.number().nullable().optional(),
+  specifications: z.record(z.string()).nullable().optional(),
 }).refine(data => new Date(data.due_date) >= new Date(data.start_date), {
   message: "Due date must be after start date",
   path: ['due_date'],
@@ -61,6 +63,7 @@ const CreateBrief = () => {
     totalAllocated: number;
     capacity: number;
   } | null>(null);
+  const [specifications, setSpecifications] = useState<Record<string, string>>({});
 
   const {
     register,
@@ -68,6 +71,7 @@ const CreateBrief = () => {
     watch,
     control,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<BriefFormData>({
     resolver: zodResolver(briefSchema),
@@ -85,6 +89,7 @@ const CreateBrief = () => {
       description: '',
       estimated_hours: null,
       expenses: null,
+      specifications: null,
     },
   });
 
@@ -174,6 +179,11 @@ const CreateBrief = () => {
             estimated_hours: briefData.estimated_hours || null,
             expenses: briefData.expenses || null,
           };
+          
+          // Set specifications state
+          if (briefData.specifications) {
+            setSpecifications(briefData.specifications as Record<string, string>);
+          }
           
           // Reset form with existing brief data
           reset(formattedBrief);
@@ -277,6 +287,12 @@ const CreateBrief = () => {
     }
   }, [watchedResourceId, watchedStartDate, watchedDueDate, watchedEstimatedHours, watchedExpenses]);
 
+  // Handle specifications change
+  const handleSpecificationsChange = (newSpecifications: Record<string, string>) => {
+    setSpecifications(newSpecifications);
+    setValue('specifications', Object.keys(newSpecifications).length > 0 ? newSpecifications : null);
+  };
+
   const onSubmit = async (data: BriefFormData) => {
     if (!user) return;
     
@@ -292,7 +308,8 @@ const CreateBrief = () => {
         approver_id: data.approver_id || null,
         estimated_hours: data.estimated_hours || null,
         expenses: data.expenses || null,
-        description: data.description || null
+        description: data.description || null,
+        specifications: Object.keys(specifications).length > 0 ? specifications : null
       };
       
       if (isEditMode && id) {
@@ -504,6 +521,22 @@ const CreateBrief = () => {
                 {...register('description')}
                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
               />
+            </div>
+            
+            {/* Specifications Editor */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Specifications
+              </label>
+              <div className="border border-gray-200 rounded-md p-4 bg-white">
+                <SpecificationsEditor
+                  initialSpecifications={specifications}
+                  onChange={handleSpecificationsChange}
+                />
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                Add technical specifications such as dimensions, format, audience, etc.
+              </p>
             </div>
           </div>
           
