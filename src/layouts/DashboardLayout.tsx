@@ -45,7 +45,6 @@ const DashboardLayout: React.FC = () => {
     { name: 'Briefs', href: '/briefs', icon: FileText },
     { name: 'Brands', href: '/brands', icon: Briefcase },
     { name: 'Resources', href: '/resources', icon: Users },
-    { name: 'Resource Dashboard', href: '/resource-dashboard', icon: PieChart },
   ];
 
   // Only show user management for admins

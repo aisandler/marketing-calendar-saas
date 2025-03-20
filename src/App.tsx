@@ -9,8 +9,7 @@ import Dashboard from './pages/Dashboard';
 import BriefsList from './pages/BriefsList';
 import BriefDetail from './pages/BriefDetail';
 import CreateBrief from './pages/CreateBrief';
-import ResourceManagement from './pages/ResourceManagement';
-import ResourceDashboard from './pages/ResourceDashboard';
+import ResourceHub from './pages/ResourceHub';
 import BrandsManagement from './pages/BrandsManagement';
 import UserManagement from './pages/UserManagement';
 import DiagnosticsPage from './pages/DiagnosticsPage';
@@ -52,21 +51,15 @@ function App() {
             <Route path="/briefs/:id" element={<BriefDetail />} />
             <Route path="/briefs/create" element={<CreateBrief />} />
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
-            <Route path="/resources" element={<ResourceManagement />} />
-            <Route path="/resource-dashboard" element={<ResourceDashboard />} />
+            <Route path="/resources" element={<ResourceHub />} />
             <Route path="/brands" element={<SimpleBrands />} />
             <Route path="/brands/management" element={<BrandsManagement />} />
             <Route path="/brands/diagnostics" element={<BrandsDiagnosticsSimple />} />
             <Route path="/brands/test" element={<MinimalBrandsTest />} />
+            <Route path="/users" element={<UserManagement />} />
             <Route path="/diagnostics" element={<DiagnosticsPage />} />
-            <Route path="/users" element={
-              <ProtectedRoute allowedRoles={['admin']}>
-                <UserManagement />
-              </ProtectedRoute>
-            } />
+            <Route path="*" element={<NotFound />} />
           </Route>
-
-          <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>
