@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -60,6 +60,10 @@ const BriefsList = () => {
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [campaigns, setCampaigns] = useState<Array<any>>([]);
+  
+  // Add sorting state
+  const [sortField, setSortField] = useState<string>('due_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -265,6 +269,38 @@ const BriefsList = () => {
     return resource ? resource.media_type : null;
   };
 
+  // Handle column sort
+  const handleSort = (field: string) => {
+    // If clicking the same field, toggle direction
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      // If clicking a new field, set it as sort field and default to ascending
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Get sort indicator for column headers
+  const getSortIndicator = (field: string) => {
+    if (sortField !== field) return null;
+    
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="h-4 w-4 inline ml-1" /> 
+      : <ArrowDown className="h-4 w-4 inline ml-1" />;
+  };
+
+  // Get column header class based on sort field
+  const getColumnHeaderClass = (field: string) => {
+    const baseClass = "px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition duration-150";
+    
+    if (sortField === field) {
+      return `${baseClass} text-indigo-600 bg-indigo-50 hover:bg-indigo-100`;
+    }
+    
+    return `${baseClass} text-gray-500`;
+  };
+
   const filteredBriefs = briefs.filter(brief => {
     // Apply search query
     if (searchQuery && !brief.title.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -308,6 +344,38 @@ const BriefsList = () => {
     }
     
     return true;
+  }).sort((a, b) => {
+    // Sort based on current sort field and direction
+    let comparison = 0;
+    
+    switch (sortField) {
+      case 'title':
+        comparison = a.title.localeCompare(b.title);
+        break;
+      case 'channel':
+        comparison = (a.channel || '').localeCompare(b.channel || '');
+        break;
+      case 'due_date':
+        comparison = new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+        break;
+      case 'status':
+        comparison = a.status.localeCompare(b.status);
+        break;
+      case 'brand':
+        comparison = (a.brand?.name || '').localeCompare(b.brand?.name || '');
+        break;
+      case 'resource':
+        comparison = (a.resource?.name || '').localeCompare(b.resource?.name || '');
+        break;
+      case 'created_by':
+        comparison = (a.created_by_user?.name || '').localeCompare(b.created_by_user?.name || '');
+        break;
+      default:
+        comparison = 0;
+    }
+    
+    // Reverse comparison if sort direction is descending
+    return sortDirection === 'asc' ? comparison : -comparison;
   });
 
   if (loading) {
@@ -513,26 +581,82 @@ const BriefsList = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Title
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('title')}
+                  onClick={() => handleSort('title')}
+                  title="Click to sort by title"
+                >
+                  <div className="flex items-center">
+                    Title
+                    {getSortIndicator('title')}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Media Type
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('channel')}
+                  onClick={() => handleSort('channel')}
+                  title="Click to sort by media type"
+                >
+                  <div className="flex items-center">
+                    Media Type
+                    {getSortIndicator('channel')}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Due Date
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('due_date')}
+                  onClick={() => handleSort('due_date')}
+                  title="Click to sort by due date"
+                >
+                  <div className="flex items-center">
+                    Due Date
+                    {getSortIndicator('due_date')}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('status')}
+                  onClick={() => handleSort('status')}
+                  title="Click to sort by status"
+                >
+                  <div className="flex items-center">
+                    Status
+                    {getSortIndicator('status')}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Brand
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('brand')}
+                  onClick={() => handleSort('brand')}
+                  title="Click to sort by brand"
+                >
+                  <div className="flex items-center">
+                    Brand
+                    {getSortIndicator('brand')}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Resource
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('resource')}
+                  onClick={() => handleSort('resource')}
+                  title="Click to sort by resource"
+                >
+                  <div className="flex items-center">
+                    Resource
+                    {getSortIndicator('resource')}
+                  </div>
                 </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created By
+                <th 
+                  scope="col" 
+                  className={getColumnHeaderClass('created_by')}
+                  onClick={() => handleSort('created_by')}
+                  title="Click to sort by creator"
+                >
+                  <div className="flex items-center">
+                    Created By
+                    {getSortIndicator('created_by')}
+                  </div>
                 </th>
               </tr>
             </thead>
