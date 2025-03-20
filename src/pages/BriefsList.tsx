@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown, Layers } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -72,6 +72,10 @@ const BriefsList = () => {
   // Add state for grouping
   const [groupBy, setGroupBy] = useState<'none' | 'status' | 'campaign'>('none');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
+
+  // Add pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Function to expand all groups
   const expandAllGroups = () => {
@@ -814,6 +818,85 @@ const BriefsList = () => {
     setSortDirection('asc');
   }, []);
 
+  // Pagination logic for grouped data
+  const paginateGroupedData = (data: Record<string, Brief[]>) => {
+    if (groupBy === 'none') {
+      // When not grouping, just paginate the single group
+      const allBriefs = data['All Briefs'];
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return { 'All Briefs': allBriefs.slice(startIndex, Math.min(endIndex, allBriefs.length)) };
+    }
+    
+    // When grouping, we need to preserve group structure but paginate the overall view
+    const allGroups = Object.keys(data);
+    let totalBriefs = 0;
+    allGroups.forEach(group => {
+      totalBriefs += data[group].length;
+    });
+    
+    // Calculate which briefs should be shown on current page
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    
+    // Keep track of how many briefs we've processed
+    let briefsProcessed = 0;
+    
+    // Create a new data structure with only the briefs for current page
+    const paginatedData: Record<string, Brief[]> = {};
+    
+    for (const group of allGroups) {
+      const groupBriefs = data[group];
+      
+      // If we haven't reached the start index yet
+      if (briefsProcessed + groupBriefs.length <= startIndex) {
+        briefsProcessed += groupBriefs.length;
+        continue; // Skip this group entirely
+      }
+      
+      // If we've gone past the end index
+      if (briefsProcessed >= endIndex) {
+        break; // We're done
+      }
+      
+      // Calculate which part of this group to include
+      const groupStartIndex = Math.max(0, startIndex - briefsProcessed);
+      const groupEndIndex = Math.min(groupBriefs.length, endIndex - briefsProcessed);
+      
+      // Add this slice to our result
+      paginatedData[group] = groupBriefs.slice(groupStartIndex, groupEndIndex);
+      
+      // Update our counter
+      briefsProcessed += groupBriefs.length;
+    }
+    
+    return paginatedData;
+  };
+  
+  // Calculate total pages
+  const totalItems = useMemo(() => {
+    return Object.values(groupedBriefs).reduce((sum, briefs) => sum + briefs.length, 0);
+  }, [groupedBriefs]);
+  
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  
+  // Get paginated data
+  const paginatedBriefs = useMemo(() => {
+    return paginateGroupedData(groupedBriefs);
+  }, [groupedBriefs, currentPage, itemsPerPage]);
+  
+  // Pagination controls
+  const goToPage = (page: number) => {
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    setCurrentPage(page);
+  };
+  
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, priorityFilter, resourceFilter, mediaTypeFilter, groupBy]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -1130,7 +1213,7 @@ const BriefsList = () => {
       {viewMode === 'list' ? (
         // Table view with grouping
         <>
-          {Object.entries(groupedBriefs).map(([groupName, groupBriefs]) => (
+          {Object.entries(paginatedBriefs).map(([groupName, groupBriefs]) => (
             <div key={groupName} className="mb-4 bg-white shadow rounded-lg overflow-hidden">
               {/* Group Header */}
               <div 
@@ -1352,7 +1435,7 @@ const BriefsList = () => {
       ) : viewMode === 'card' ? (
         // Card view with grouping
         <div className="space-y-6">
-          {Object.entries(groupedBriefs).map(([groupName, groupBriefs]) => (
+          {Object.entries(paginatedBriefs).map(([groupName, groupBriefs]) => (
             <div key={groupName} className="bg-white shadow rounded-lg overflow-hidden">
               {/* Group Header */}
               <div 
@@ -1486,6 +1569,136 @@ const BriefsList = () => {
           briefs={filteredBriefs}
           campaigns={campaigns}
         />
+      )}
+      
+      {/* Pagination Controls */}
+      {viewMode !== 'calendar' && totalPages > 1 && (
+        <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-lg shadow">
+          <div className="flex flex-1 justify-between sm:hidden">
+            <Button
+              variant="outline"
+              onClick={() => goToPage(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="relative inline-flex items-center rounded-md px-4 py-2"
+            >
+              Previous
+            </Button>
+            <div className="mx-2 flex items-center">
+              <span className="text-sm text-gray-700">
+                Page {currentPage} of {totalPages}
+              </span>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => goToPage(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="relative inline-flex items-center rounded-md px-4 py-2"
+            >
+              Next
+            </Button>
+          </div>
+          <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm text-gray-700">
+                Showing <span className="font-medium">{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{' '}
+                <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{' '}
+                <span className="font-medium">{totalItems}</span> results
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <label htmlFor="itemsPerPage" className="text-sm text-gray-600 mr-1">Show:</label>
+              <select
+                id="itemsPerPage"
+                value={itemsPerPage}
+                onChange={(e) => {
+                  const newItemsPerPage = parseInt(e.target.value);
+                  setItemsPerPage(newItemsPerPage);
+                  setCurrentPage(1); // Reset to first page when changing items per page
+                }}
+                className="rounded border-gray-300 text-sm py-1 pr-8 pl-2 focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              
+              <div className="flex items-center">
+                <Button
+                  variant="outline"
+                  onClick={() => goToPage(1)}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                >
+                  <span className="sr-only">First</span>
+                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4 -ml-2" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => goToPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                >
+                  <span className="sr-only">Previous</span>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                
+                <div className="flex items-center">
+                  {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                    // Display page numbers centered around current page
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      // If we have 5 or fewer pages, show all
+                      pageNum = i + 1;
+                    } else {
+                      // Otherwise, show a window centered on current page
+                      const leftOffset = Math.max(
+                        0,
+                        Math.min(
+                          currentPage - 3, // 2 to the left
+                          totalPages - 5   // Don't go beyond total - 5
+                        )
+                      );
+                      pageNum = i + 1 + leftOffset;
+                    }
+                    
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === currentPage ? "default" : "outline"}
+                        onClick={() => goToPage(pageNum)}
+                        className="relative inline-flex items-center px-4 py-2 text-sm font-semibold focus:z-20"
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                </div>
+                
+                <Button
+                  variant="outline"
+                  onClick={() => goToPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                >
+                  <span className="sr-only">Next</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => goToPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0"
+                >
+                  <span className="sr-only">Last</span>
+                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-4 w-4 -ml-2" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
