@@ -1307,7 +1307,7 @@ const BriefsList = () => {
                     <ChevronUp className="h-5 w-5 text-gray-500 mr-2" />
                   )}
                   <h3 className="font-medium text-gray-700">{groupName}</h3>
-                  <span className="ml-2 text-sm text-gray-500">({groupBriefs.length} {groupBriefs.length === 1 ? 'brief' : 'briefs'})</span>
+                  <span className="ml-2 text-sm text-gray-500">({groupedBriefs[groupName]?.length || 0} {(groupedBriefs[groupName]?.length || 0) === 1 ? 'brief' : 'briefs'})</span>
                 </div>
               </div>
               
@@ -1529,7 +1529,7 @@ const BriefsList = () => {
                     <ChevronUp className="h-5 w-5 text-gray-500 mr-2" />
                   )}
                   <h3 className="font-medium text-gray-700">{groupName}</h3>
-                  <span className="ml-2 text-sm text-gray-500">({groupBriefs.length} {groupBriefs.length === 1 ? 'brief' : 'briefs'})</span>
+                  <span className="ml-2 text-sm text-gray-500">({groupedBriefs[groupName]?.length || 0} {(groupedBriefs[groupName]?.length || 0) === 1 ? 'brief' : 'briefs'})</span>
                 </div>
               </div>
               
