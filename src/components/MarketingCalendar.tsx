@@ -1,25 +1,18 @@
-import React from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: string;
-  end: string;
-  backgroundColor: string;
-  borderColor: string;
-  url?: string;
-  extendedProps: {
-    type: 'brief' | 'campaign';
-    status: string;
-    brand?: string;
-    resource?: string;
-  };
-}
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  getDay, 
+  isToday,
+  isSameDay,
+  addMonths,
+  subMonths
+} from 'date-fns';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MarketingCalendarProps {
   briefs: Array<{
@@ -33,7 +26,7 @@ interface MarketingCalendarProps {
   }>;
   campaigns?: Array<{
     id: string;
-    title: string;
+    name: string;
     start_date: string;
     end_date: string;
     status: string;
@@ -41,98 +34,206 @@ interface MarketingCalendarProps {
   }>;
 }
 
-const getStatusColor = (status: string): { bg: string; border: string } => {
+const getStatusColor = (status: string): string => {
   switch (status.toLowerCase()) {
     case 'draft':
-      return { bg: '#E5E7EB', border: '#9CA3AF' };
+      return 'bg-gray-100 text-gray-800';
     case 'pending_approval':
-      return { bg: '#FEF3C7', border: '#F59E0B' };
+      return 'bg-amber-100 text-amber-800';
     case 'approved':
-      return { bg: '#D1FAE5', border: '#10B981' };
+      return 'bg-blue-100 text-blue-800';
     case 'in_progress':
-      return { bg: '#DBEAFE', border: '#3B82F6' };
+      return 'bg-indigo-100 text-indigo-800';
     case 'review':
-      return { bg: '#FEE2E2', border: '#EF4444' };
+      return 'bg-purple-100 text-purple-800';
     case 'complete':
-      return { bg: '#A7F3D0', border: '#059669' };
+      return 'bg-emerald-100 text-emerald-800';
     case 'cancelled':
-      return { bg: '#F3F4F6', border: '#6B7280' };
+      return 'bg-red-100 text-red-800';
+    case 'active':
+      return 'bg-indigo-100 text-indigo-800';
     default:
-      return { bg: '#E5E7EB', border: '#9CA3AF' };
+      return 'bg-gray-100 text-gray-800';
   }
 };
 
 const MarketingCalendar: React.FC<MarketingCalendarProps> = ({ briefs, campaigns = [] }) => {
-  const events: CalendarEvent[] = [
-    ...briefs.map(brief => ({
-      id: `brief-${brief.id}`,
-      title: brief.title,
-      start: brief.start_date,
-      end: brief.due_date,
-      url: `/briefs/${brief.id}`,
-      backgroundColor: getStatusColor(brief.status).bg,
-      borderColor: getStatusColor(brief.status).border,
-      extendedProps: {
-        type: 'brief' as const,
-        status: brief.status,
-        brand: brief.brand?.name,
-        resource: brief.resource?.name
-      }
-    })),
-    ...campaigns.map(campaign => ({
-      id: `campaign-${campaign.id}`,
-      title: campaign.title,
-      start: campaign.start_date,
-      end: campaign.end_date,
-      url: `/campaigns/${campaign.id}`,
-      backgroundColor: '#FDF2F8',
-      borderColor: '#EC4899',
-      extendedProps: {
-        type: 'campaign' as const,
-        status: campaign.status,
-        brand: campaign.brand?.name
-      }
-    }))
-  ];
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [showCampaigns, setShowCampaigns] = useState(true);
+  const [showBriefs, setShowBriefs] = useState(true);
+  
+  const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  
+  // Get all days in the current month
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  const startDate = monthStart;
+  const endDate = monthEnd;
+  
+  // Create array of date objects for all days in month
+  const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
+  
+  // Calculate the actual grid: start on Sunday of the week containing the first of the month
+  const startDay = getDay(monthStart); // 0 (Sunday) to 6 (Saturday)
 
-  const renderEventContent = (eventInfo: any) => {
-    const { event } = eventInfo;
-    return (
-      <div className="p-1">
-        <div className="font-semibold text-sm truncate">
-          {event.extendedProps.type === 'campaign' ? '📅 ' : '📝 '}
-          {event.title}
-        </div>
-        <div className="text-xs truncate text-gray-600">
-          {event.extendedProps.brand && `${event.extendedProps.brand} • `}
-          {event.extendedProps.type === 'brief' && event.extendedProps.resource && 
-            `${event.extendedProps.resource} • `}
-          {event.extendedProps.status.replace('_', ' ')}
-        </div>
-      </div>
+  // Helper to get briefs for a specific day
+  const getBriefsForDay = (date: Date) => {
+    if (!showBriefs) return [];
+    
+    return briefs.filter(brief => {
+      const briefStart = new Date(brief.start_date);
+      const briefEnd = new Date(brief.due_date);
+      
+      // Check if this date falls within the brief's duration
+      return date >= briefStart && date <= briefEnd;
+    });
+  };
+  
+  // Helper to get campaigns for a specific day
+  const getCampaignsForDay = (date: Date) => {
+    if (!showCampaigns) return [];
+    
+    return campaigns.filter(campaign => {
+      const campaignStart = new Date(campaign.start_date);
+      const campaignEnd = new Date(campaign.end_date);
+      
+      // Check if this date falls within the campaign's duration
+      return date >= campaignStart && date <= campaignEnd;
+    });
+  };
+  
+  const navigateMonth = (direction: 'prev' | 'next') => {
+    setCurrentMonth(prevMonth => 
+      direction === 'prev' ? subMonths(prevMonth, 1) : addMonths(prevMonth, 1)
     );
   };
-
+  
   return (
-    <div className="bg-white p-4 rounded-lg shadow">
-      <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek'
-        }}
-        events={events}
-        eventContent={renderEventContent}
-        height="auto"
-        eventClick={(info) => {
-          info.jsEvent.preventDefault();
-          if (info.event.url) {
-            window.location.href = info.event.url;
-          }
-        }}
-      />
+    <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Calendar header */}
+      <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-900 mb-2 sm:mb-0">
+          {format(currentMonth, 'MMMM yyyy')}
+        </h2>
+        <div className="flex justify-between sm:justify-end items-center gap-4">
+          <div className="flex gap-3 text-sm">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showBriefs}
+                onChange={() => setShowBriefs(!showBriefs)}
+                className="mr-2 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Briefs
+            </label>
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={showCampaigns}
+                onChange={() => setShowCampaigns(!showCampaigns)}
+                className="mr-2 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+              />
+              Campaigns
+            </label>
+          </div>
+          <div className="flex space-x-2">
+            <button 
+              onClick={() => navigateMonth('prev')}
+              className="p-1 rounded-full hover:bg-gray-100"
+              aria-label="Previous month"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => navigateMonth('next')}
+              className="p-1 rounded-full hover:bg-gray-100"
+              aria-label="Next month"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Calendar grid */}
+      <div className="p-4">
+        {/* Days of week header */}
+        <div className="grid grid-cols-7 mb-2">
+          {daysOfWeek.map(day => (
+            <div key={day} className="text-center text-sm font-medium text-gray-500 py-2">
+              {day}
+            </div>
+          ))}
+        </div>
+        
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 gap-2">
+          {/* Empty cells for days before the start of month */}
+          {Array.from({ length: startDay }).map((_, index) => (
+            <div key={`empty-start-${index}`} className="h-24 bg-gray-50 rounded-md" />
+          ))}
+          
+          {/* Days of the month */}
+          {daysInMonth.map(day => {
+            const dayBriefs = getBriefsForDay(day);
+            const dayCampaigns = getCampaignsForDay(day);
+            const isCurrentMonth = isSameMonth(day, currentMonth);
+            const items = [
+              ...dayCampaigns.map(campaign => ({ 
+                type: 'campaign', 
+                id: campaign.id, 
+                title: campaign.name,
+                status: campaign.status,
+                url: `/campaigns/${campaign.id}`
+              })),
+              ...dayBriefs.map(brief => ({ 
+                type: 'brief', 
+                id: brief.id, 
+                title: brief.title,
+                status: brief.status,
+                url: `/briefs/${brief.id}`
+              }))
+            ];
+            
+            return (
+              <div
+                key={day.toISOString()}
+                className={`h-24 border rounded-md overflow-hidden ${
+                  isToday(day) ? 'border-blue-500' : 'border-gray-200'
+                } ${isCurrentMonth ? 'bg-white' : 'bg-gray-50'}`}
+              >
+                <div className={`text-right p-1 ${
+                  isToday(day) ? 'bg-blue-50' : ''
+                }`}>
+                  <span className={`text-sm font-medium inline-block rounded-full w-6 h-6 text-center leading-6 ${
+                    isToday(day) ? 'bg-blue-500 text-white' : 'text-gray-700'
+                  }`}>
+                    {format(day, 'd')}
+                  </span>
+                </div>
+                <div className="p-1 overflow-y-auto max-h-16">
+                  {items.slice(0, 3).map(item => (
+                    <Link
+                      key={`${item.type}-${item.id}`}
+                      to={item.url}
+                      className={`block text-xs truncate mb-1 px-1 py-0.5 rounded ${getStatusColor(item.status)} ${
+                        item.type === 'campaign' ? 'border-l-2 border-indigo-400' : 'border-l-2 border-emerald-400'
+                      }`}
+                    >
+                      {item.type === 'campaign' ? '📅 ' : '📝 '}{item.title}
+                    </Link>
+                  ))}
+                  {items.length > 3 && (
+                    <div className="text-xs text-gray-500 px-1">
+                      +{items.length - 3} more
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 };

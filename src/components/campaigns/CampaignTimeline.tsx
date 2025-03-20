@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format, isAfter, isBefore, isToday, differenceInDays, addDays } from 'date-fns';
+import { format, isAfter, isBefore, isToday, differenceInDays, addDays, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, addMonths, addQuarters, getMonth, getYear, getQuarter, eachDayOfInterval, eachWeekOfInterval, eachMonthOfInterval, isSameDay, getDate, isFirstDayOfMonth } from 'date-fns';
+import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from 'lucide-react';
 
 // Define the Campaign interface
 interface Campaign {
@@ -16,6 +17,8 @@ interface Campaign {
   };
 }
 
+type ZoomLevel = 'all' | 'quarter' | 'month';
+
 interface CampaignTimelineProps {
   campaigns: Campaign[];
   startDate?: Date;
@@ -29,24 +32,40 @@ const CampaignTimeline: React.FC<CampaignTimelineProps> = ({
   endDate: propEndDate,
   onCampaignClick,
 }) => {
+  // State for zoom level and current view
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('all');
+  const [currentViewDate, setCurrentViewDate] = useState<Date>(new Date());
+  
   // Calculate the timeline range based on all campaigns
   const allCampaignDates = campaigns.flatMap(campaign => [
     new Date(campaign.start_date),
     new Date(campaign.end_date),
   ]);
   
-  const earliest = propStartDate || (allCampaignDates.length > 0 
+  const globalEarliest = propStartDate || (allCampaignDates.length > 0 
     ? new Date(Math.min(...allCampaignDates.map(d => d.getTime())))
     : new Date());
   
-  const latest = propEndDate || (allCampaignDates.length > 0
+  const globalLatest = propEndDate || (allCampaignDates.length > 0
     ? new Date(Math.max(...allCampaignDates.map(d => d.getTime())))
     : addDays(new Date(), 90));
   
-  // Adjust dates to ensure at least 30 days are shown
-  const minDaySpan = 30;
-  const daySpan = differenceInDays(latest, earliest);
-  const endDate = daySpan < minDaySpan ? addDays(earliest, minDaySpan) : latest;
+  // Calculate actual timeline range based on zoom level
+  const getTimelineRange = (): [Date, Date] => {
+    if (zoomLevel === 'all') {
+      const daySpan = differenceInDays(globalLatest, globalEarliest);
+      const minDaySpan = 30;
+      const endDate = daySpan < minDaySpan ? addDays(globalEarliest, minDaySpan) : globalLatest;
+      return [globalEarliest, endDate];
+    } else if (zoomLevel === 'month') {
+      return [startOfMonth(currentViewDate), endOfMonth(currentViewDate)];
+    } else if (zoomLevel === 'quarter') {
+      return [startOfQuarter(currentViewDate), endOfQuarter(currentViewDate)];
+    }
+    return [globalEarliest, globalLatest];
+  };
+  
+  const [earliest, endDate] = getTimelineRange();
   
   // Generate array of dates for the timeline
   const totalDays = differenceInDays(endDate, earliest);
@@ -56,15 +75,15 @@ const CampaignTimeline: React.FC<CampaignTimelineProps> = ({
   const getStatusColor = (status: Campaign['status']) => {
     switch (status) {
       case 'draft':
-        return 'bg-gray-200 border-gray-300';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
       case 'active':
-        return 'bg-green-100 border-green-200';
+        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'complete':
-        return 'bg-blue-100 border-blue-200';
+        return 'bg-emerald-100 text-emerald-800 border-emerald-200';
       case 'cancelled':
-        return 'bg-red-100 border-red-200';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 border-gray-200';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
   
@@ -92,8 +111,147 @@ const CampaignTimeline: React.FC<CampaignTimelineProps> = ({
     currentDate = nextMonth;
   }
   
+  // Handle zoom level change
+  const handleZoomChange = (newZoomLevel: ZoomLevel) => {
+    setZoomLevel(newZoomLevel);
+    // If zooming from 'all' to a specific view, center on current date or midpoint of timeline
+    if (zoomLevel === 'all' && newZoomLevel !== 'all') {
+      if (isAfter(today, globalEarliest) && isBefore(today, globalLatest)) {
+        setCurrentViewDate(today);
+      } else {
+        // Find midpoint between earliest and latest
+        const midpointTime = globalEarliest.getTime() + (globalLatest.getTime() - globalEarliest.getTime()) / 2;
+        setCurrentViewDate(new Date(midpointTime));
+      }
+    }
+  };
+  
+  // Handle navigation
+  const navigateTimeline = (direction: 'prev' | 'next') => {
+    if (zoomLevel === 'month') {
+      setCurrentViewDate(prev => 
+        direction === 'prev' 
+          ? addMonths(prev, -1) 
+          : addMonths(prev, 1)
+      );
+    } else if (zoomLevel === 'quarter') {
+      setCurrentViewDate(prev => 
+        direction === 'prev' 
+          ? addQuarters(prev, -1) 
+          : addQuarters(prev, 1)
+      );
+    }
+  };
+  
+  // Get title for current view
+  const getViewTitle = () => {
+    if (zoomLevel === 'all') {
+      return 'All Campaigns';
+    } else if (zoomLevel === 'month') {
+      return format(currentViewDate, 'MMMM yyyy');
+    } else if (zoomLevel === 'quarter') {
+      return `Q${getQuarter(currentViewDate)} ${getYear(currentViewDate)}`;
+    }
+    return '';
+  };
+  
+  // Generate time units for grid based on zoom level
+  const getTimeUnits = () => {
+    if (zoomLevel === 'month') {
+      // For month view, show each day
+      return eachDayOfInterval({ start: earliest, end: endDate }).map(date => ({
+        date,
+        isMainUnit: getDate(date) === 1 || getDate(date) % 7 === 1, // First day of month or week
+        label: getDate(date).toString(),
+        widthPercentage: (1 / totalDays) * 100,
+      }));
+    } else if (zoomLevel === 'quarter') {
+      // For quarter view, show each week
+      return eachWeekOfInterval(
+        { start: earliest, end: endDate },
+        { weekStartsOn: 1 } // Start weeks on Monday
+      ).map(weekStart => {
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const adjustedEnd = isBefore(weekEnd, endDate) ? weekEnd : endDate;
+        const daysInWeek = differenceInDays(adjustedEnd, weekStart) + 1;
+        
+        return {
+          date: weekStart,
+          isMainUnit: isFirstDayOfMonth(weekStart),
+          label: `W${format(weekStart, 'w')}`,
+          widthPercentage: (daysInWeek / totalDays) * 100,
+        };
+      });
+    } else {
+      // For all view, show each month (already calculated in months array)
+      return months.map(month => ({
+        date: month.date,
+        isMainUnit: true,
+        label: format(month.date, 'MMM'),
+        widthPercentage: month.width,
+      }));
+    }
+  };
+  
+  const timeUnits = getTimeUnits();
+  
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Zoom and Navigation Controls */}
+      <div className="flex justify-between items-center px-4 py-2 border-b border-gray-200 bg-gray-50">
+        <div className="flex space-x-2 items-center">
+          <button
+            onClick={() => handleZoomChange('all')}
+            className={`px-2 py-1 text-xs rounded ${zoomLevel === 'all' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => handleZoomChange('quarter')}
+            className={`px-2 py-1 text-xs rounded ${zoomLevel === 'quarter' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+          >
+            Quarter
+          </button>
+          <button
+            onClick={() => handleZoomChange('month')}
+            className={`px-2 py-1 text-xs rounded ${zoomLevel === 'month' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-600 hover:bg-gray-100'}`}
+          >
+            Month
+          </button>
+        </div>
+        
+        <div className="font-medium">{getViewTitle()}</div>
+        
+        <div className="flex space-x-2">
+          {zoomLevel !== 'all' && (
+            <>
+              <button
+                onClick={() => navigateTimeline('prev')}
+                className="p-1 rounded-full hover:bg-gray-100"
+                aria-label="Previous"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => navigateTimeline('next')}
+                className="p-1 rounded-full hover:bg-gray-100"
+                aria-label="Next"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </>
+          )}
+          <button
+            onClick={() => handleZoomChange(zoomLevel === 'month' ? 'quarter' : zoomLevel === 'quarter' ? 'all' : 'quarter')}
+            className="p-1 rounded-full hover:bg-gray-100"
+            aria-label={zoomLevel === 'month' || zoomLevel === 'quarter' ? "Zoom Out" : "Zoom In"}
+          >
+            {zoomLevel === 'month' || zoomLevel === 'quarter' ? <ZoomOut className="w-4 h-4" /> : <ZoomIn className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+      
       {/* Month labels */}
       <div className="flex border-b border-gray-200">
         {months.map((month, index) => (
@@ -107,8 +265,36 @@ const CampaignTimeline: React.FC<CampaignTimelineProps> = ({
         ))}
       </div>
       
+      {/* Time Unit Grid */}
+      <div className="flex border-b border-gray-200 h-6">
+        {timeUnits.map((unit, index) => (
+          <div 
+            key={index}
+            className={`relative border-r border-gray-100 ${unit.isMainUnit ? 'border-gray-300' : ''}`}
+            style={{ width: `${unit.widthPercentage}%` }}
+          >
+            {unit.isMainUnit && (
+              <span className="absolute top-1 left-1 text-[10px] text-gray-500">
+                {unit.label}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+      
       {/* Timeline grid */}
       <div className="relative">
+        {/* Grid lines */}
+        <div className="absolute inset-0 flex pointer-events-none">
+          {timeUnits.map((unit, index) => (
+            <div 
+              key={index}
+              className={`border-r ${unit.isMainUnit ? 'border-gray-300' : 'border-gray-100'}`}
+              style={{ width: `${unit.widthPercentage}%` }}
+            />
+          ))}
+        </div>
+        
         {/* Today marker */}
         {isAfter(today, earliest) && isBefore(today, endDate) && (
           <div 
@@ -124,7 +310,7 @@ const CampaignTimeline: React.FC<CampaignTimelineProps> = ({
         )}
         
         {/* Campaign bars */}
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 relative">
           {campaigns.map(campaign => {
             const campaignStart = new Date(campaign.start_date);
             const campaignEnd = new Date(campaign.end_date);

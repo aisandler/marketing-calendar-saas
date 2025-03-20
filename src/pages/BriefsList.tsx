@@ -1661,7 +1661,10 @@ const BriefsList = () => {
         // Calendar view
         <MarketingCalendar 
           briefs={filteredBriefs}
-          campaigns={campaigns}
+          campaigns={campaigns.map(campaign => ({
+            ...campaign,
+            name: campaign.name || campaign.title // Ensure name property exists
+          }))}
         />
       )}
       
