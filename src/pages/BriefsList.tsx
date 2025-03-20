@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { formatDate, getPriorityColor, getStatusColor } from '../lib/utils';
+import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal } from 'lucide-react';
@@ -67,6 +67,7 @@ const BriefsList = () => {
 
   const [filterCount, setFilterCount] = useState(0);
   const [showCompleted, setShowCompleted] = useState(false);
+  const [resourceUtilization, setResourceUtilization] = useState<Record<string, number>>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -191,6 +192,9 @@ const BriefsList = () => {
         setUsers(usersData as User[]);
         setBrands(brandsData || []);
         setMediaTypes(uniqueMediaTypes);
+
+        // Calculate resource utilization
+        calculateResourceUtilization(briefsData);
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError(error?.message || 'An unexpected error occurred while loading data');
@@ -577,6 +581,72 @@ const BriefsList = () => {
       console.error('Error updating brief status:', error);
       alert('An unexpected error occurred');
     }
+  };
+
+  // Calculate resource utilization based on briefs
+  const calculateResourceUtilization = (briefsData: Brief[]) => {
+    const utilization: Record<string, number> = {};
+    
+    // Group briefs by resource
+    const resourceBriefs: Record<string, Brief[]> = {};
+    
+    briefsData.forEach(brief => {
+      if (brief.resource_id) {
+        if (!resourceBriefs[brief.resource_id]) {
+          resourceBriefs[brief.resource_id] = [];
+        }
+        resourceBriefs[brief.resource_id].push(brief);
+      }
+    });
+    
+    // Calculate utilization for each resource
+    Object.keys(resourceBriefs).forEach(resourceId => {
+      const briefs = resourceBriefs[resourceId];
+      const now = new Date();
+      const twoWeeksFromNow = new Date();
+      twoWeeksFromNow.setDate(now.getDate() + 14);
+      
+      // Calculate hours in next two weeks
+      const hoursInPeriod = briefs.reduce((total, brief) => {
+        const briefDate = new Date(brief.due_date);
+        // Only count briefs due in the next two weeks and not completed
+        if (briefDate >= now && briefDate <= twoWeeksFromNow && brief.status !== 'complete' && brief.status !== 'cancelled') {
+          return total + (brief.estimated_hours || 0);
+        }
+        return total;
+      }, 0);
+      
+      // Assume 40 hours/week capacity (80 hours for two weeks)
+      const utilizationPercent = Math.min(100, Math.round((hoursInPeriod / 80) * 100));
+      utilization[resourceId] = utilizationPercent;
+    });
+    
+    setResourceUtilization(utilization);
+  };
+
+  // Get utilization display for a resource
+  const getResourceUtilizationDisplay = (resourceId: string | null) => {
+    if (!resourceId || resourceUtilization[resourceId] === undefined) return null;
+    
+    const utilization = resourceUtilization[resourceId];
+    let color = 'bg-green-500';
+    
+    if (utilization >= 90) {
+      color = 'bg-red-500'; // Overallocated
+    } else if (utilization >= 70) {
+      color = 'bg-amber-500'; // Heavily allocated
+    } else if (utilization >= 40) {
+      color = 'bg-blue-500'; // Moderately allocated
+    }
+    
+    return (
+      <div className="ml-2 flex items-center" title={`${utilization}% utilized in next 2 weeks`}>
+        <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className={`h-full ${color}`} style={{ width: `${utilization}%` }}></div>
+        </div>
+        <span className="text-xs ml-1 text-gray-500">{utilization}%</span>
+      </div>
+    );
   };
 
   if (loading) {
@@ -979,7 +1049,10 @@ const BriefsList = () => {
                         {brief.brand?.name || 'Unknown'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.resource?.name || 'Unassigned'}>
-                        {brief.resource?.name || 'Unassigned'}
+                        <div className="flex items-center">
+                          <span className="truncate">{brief.resource?.name || 'Unassigned'}</span>
+                          {brief.resource_id && getResourceUtilizationDisplay(brief.resource_id)}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
                         {brief.created_by_user?.name || 'Unknown'}
