@@ -21,7 +21,6 @@ const BriefDetail = () => {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [relatedFiles, setRelatedFiles] = useState<any[]>([]);
   const [relatedBriefs, setRelatedBriefs] = useState<any[]>([]);
-  const [brandGuidelines, setBrandGuidelines] = useState<any | null>(null);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
 
@@ -137,20 +136,6 @@ const BriefDetail = () => {
           { id: 'b3', title: 'Press Release', channel: 'Blog Post', status: 'review', due_date: '2023-11-20' }
         ];
         setRelatedBriefs(mockRelatedBriefs);
-
-        // Simulate fetching brand guidelines
-        const mockBrandGuidelines = {
-          id: 'bg1',
-          name: 'TechCorp Brand Guidelines',
-          colors: [
-            { name: 'Primary Blue', hex: '#2563eb' },
-            { name: 'Secondary Green', hex: '#10b981' },
-            { name: 'Accent Red', hex: '#ef4444' }
-          ],
-          fonts: ['Montserrat', 'Open Sans'],
-          tone: 'Professional, innovative, approachable'
-        };
-        setBrandGuidelines(mockBrandGuidelines);
 
         // Simulate fetching comments
         const mockComments = [
@@ -440,38 +425,31 @@ const BriefDetail = () => {
             </div>
           </div>
           
-          {/* Specifications with rich visualization */}
+          {/* Specifications with rich visualization - more defensive handling of data */}
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">Specifications</h3>
-              {brief.specifications ? (
+              {brief.specifications && typeof brief.specifications === 'object' && Object.keys(brief.specifications).length > 0 ? (
                 <div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    {/* Example specification cards - would be dynamic based on actual data */}
-                    <div className="border border-gray-200 rounded-lg p-4 bg-blue-50">
-                      <h4 className="text-sm font-medium text-blue-800 mb-2">Target Audience</h4>
-                      <p className="text-sm text-gray-700">
-                        {brief.specifications.audience || "Young professionals aged 25-34, tech-savvy, urban dwellers"}
-                      </p>
-                    </div>
-                    <div className="border border-gray-200 rounded-lg p-4 bg-amber-50">
-                      <h4 className="text-sm font-medium text-amber-800 mb-2">Key Message</h4>
-                      <p className="text-sm text-gray-700">
-                        {brief.specifications.message || "Emphasize sustainability and premium quality"}
-                      </p>
-                    </div>
-                    <div className="border border-gray-200 rounded-lg p-4 bg-green-50">
-                      <h4 className="text-sm font-medium text-green-800 mb-2">Content Length</h4>
-                      <p className="text-sm text-gray-700">
-                        {brief.specifications.length || "60-second video, 500-700 words article"}
-                      </p>
-                    </div>
-                    <div className="border border-gray-200 rounded-lg p-4 bg-purple-50">
-                      <h4 className="text-sm font-medium text-purple-800 mb-2">Call To Action</h4>
-                      <p className="text-sm text-gray-700">
-                        {brief.specifications.cta || "Sign up for a free trial"}
-                      </p>
-                    </div>
+                    {/* Dynamic specification cards based on actual data */}
+                    {Object.entries(brief.specifications).map(([key, value], index) => {
+                      // Generate a different color for each specification card
+                      const colors = ['blue', 'amber', 'green', 'purple', 'indigo', 'pink', 'sky', 'emerald'];
+                      const colorIndex = index % colors.length;
+                      const color = colors[colorIndex];
+                      
+                      return (
+                        <div key={key} className={`border border-gray-200 rounded-lg p-4 bg-${color}-50`}>
+                          <h4 className={`text-sm font-medium text-${color}-800 mb-2`}>
+                            {key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ')}
+                          </h4>
+                          <p className="text-sm text-gray-700">
+                            {value ? (typeof value === 'object' ? JSON.stringify(value) : value.toString()) : 'Not specified'}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                   <div className="border-t border-gray-200 pt-4 mt-2">
                     <p className="text-xs text-gray-500 mb-2">Full specifications JSON:</p>
@@ -481,7 +459,17 @@ const BriefDetail = () => {
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500 italic">No specifications provided.</p>
+                <div className="text-center py-6">
+                  <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">No specifications provided</p>
+                  {canEdit && (
+                    <Link to={`/briefs/${brief.id}/edit`}>
+                      <Button variant="outline" className="mt-3 text-xs px-2 py-1">
+                        Add Specifications
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -489,7 +477,15 @@ const BriefDetail = () => {
           {/* Reference Materials */}
           <div className="bg-white shadow rounded-lg overflow-hidden">
             <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Reference Materials</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Reference Materials</h3>
+                {canEdit && (
+                  <Button variant="outline" className="text-xs px-2 py-1">
+                    <Paperclip className="h-4 w-4 mr-1" />
+                    Add File
+                  </Button>
+                )}
+              </div>
               {relatedFiles.length > 0 ? (
                 <div className="space-y-3">
                   {relatedFiles.map(file => (
@@ -503,9 +499,16 @@ const BriefDetail = () => {
                           <p className="text-xs text-gray-500">{file.size}</p>
                         </div>
                       </div>
-                      <a href={file.url} className="text-blue-600 hover:text-blue-800">
-                        <Download className="h-5 w-5" />
-                      </a>
+                      <div className="flex items-center space-x-2">
+                        <a href={file.url} className="text-blue-600 hover:text-blue-800">
+                          <Download className="h-5 w-5" />
+                        </a>
+                        {canEdit && (
+                          <button className="text-red-500 hover:text-red-700">
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -819,51 +822,6 @@ const BriefDetail = () => {
               )}
             </div>
           </div>
-          
-          {/* Brand Guidelines */}
-          {brandGuidelines && (
-            <div className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Brand Guidelines</h3>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">{brandGuidelines.name}</h4>
-                  
-                  {/* Brand colors */}
-                  <div className="mb-4">
-                    <h5 className="text-xs text-gray-500 mb-2">Brand Colors</h5>
-                    <div className="flex space-x-2">
-                      {brandGuidelines.colors.map((color: any, index: number) => (
-                        <div key={index} className="text-center">
-                          <div 
-                            className="w-8 h-8 rounded-md mb-1 border border-gray-200" 
-                            style={{ backgroundColor: color.hex }}
-                            title={color.name}
-                          ></div>
-                          <span className="text-xs text-gray-500">{color.name.split(' ')[0]}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Brand fonts */}
-                  <div className="mb-4">
-                    <h5 className="text-xs text-gray-500 mb-2">Brand Fonts</h5>
-                    <div className="flex flex-wrap gap-2">
-                      {brandGuidelines.fonts.map((font: string, index: number) => (
-                        <span key={index} className="text-xs bg-gray-100 px-2 py-1 rounded">{font}</span>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  {/* Brand tone */}
-                  <div>
-                    <h5 className="text-xs text-gray-500 mb-2">Brand Tone</h5>
-                    <p className="text-sm text-gray-700">{brandGuidelines.tone}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
           
           {/* Related Briefs */}
           {relatedBriefs.length > 0 && (
