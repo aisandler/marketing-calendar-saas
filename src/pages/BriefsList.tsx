@@ -910,9 +910,9 @@ const BriefsList = () => {
   
   // Calculate total pages
   const totalItems = useMemo(() => {
-    // For timeline view, always use the total filtered briefs count
-    if (viewMode === 'timeline') {
-      return filteredBriefs.length;
+    // Skip calculation for timeline and calendar views
+    if (viewMode === 'timeline' || viewMode === 'calendar') {
+      return 0;
     }
     
     if (groupBy === 'none') {
@@ -1653,15 +1653,9 @@ const BriefsList = () => {
           ))}
         </div>
       ) : viewMode === 'timeline' ? (
-        // Timeline view - use paginated data
+        // Timeline view - show all briefs without pagination
         <div>
-          <BriefsTimeline 
-            briefs={
-              groupBy === 'none' 
-                ? paginatedBriefs['All Briefs'] 
-                : filteredBriefs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-            } 
-          />
+          <BriefsTimeline briefs={filteredBriefs} />
         </div>
       ) : (
         // Calendar view
@@ -1672,7 +1666,7 @@ const BriefsList = () => {
       )}
       
       {/* Pagination Controls */}
-      {viewMode !== 'calendar' && totalPages > 1 && (
+      {(viewMode === 'list' || viewMode === 'card') && totalPages > 1 && (
         <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6 mt-4 rounded-lg shadow">
           <div className="flex flex-1 justify-between sm:hidden">
             <Button
