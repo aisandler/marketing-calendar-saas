@@ -22,6 +22,7 @@ import BrandsDiagnosticsSimple from './pages/BrandsDiagnosticsSimple';
 import MinimalBrandsTest from './pages/MinimalBrandsTest';
 import SimpleBrands from './pages/SimpleBrands';
 import ResetPassword from './pages/auth/ResetPassword';
+import Settings from './pages/Settings';
 
 function App() {
   return (
@@ -52,11 +53,15 @@ function App() {
             <Route path="/briefs/create" element={<CreateBrief />} />
             <Route path="/briefs/:id/edit" element={<CreateBrief />} />
             <Route path="/resources" element={<ResourceHub />} />
+            
+            {/* Settings Routes */}
+            <Route path="/settings" element={<Settings />} />
             <Route path="/brands" element={<SimpleBrands />} />
             <Route path="/brands/management" element={<BrandsManagement />} />
             <Route path="/brands/diagnostics" element={<BrandsDiagnosticsSimple />} />
             <Route path="/brands/test" element={<MinimalBrandsTest />} />
             <Route path="/users" element={<UserManagement />} />
+            
             <Route path="/diagnostics" element={<DiagnosticsPage />} />
             <Route path="*" element={<NotFound />} />
           </Route>

@@ -14,7 +14,8 @@ import {
   Bell,
   ChevronDown,
   Folders,
-  PieChart
+  PieChart,
+  Settings
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -39,12 +40,35 @@ const DashboardLayout: React.FC = () => {
     return location.pathname.startsWith(path);
   };
 
-  const navigation = [
+  const isSettingsActive = () => {
+    // Check if any settings subitems are active
+    return navigation.find(item => item.name === 'Settings')?.subItems?.some(
+      subItem => isActivePath(subItem.href)
+    ) || isActivePath('/settings');
+  };
+
+  type NavigationItem = {
+    name: string;
+    href: string;
+    icon: React.FC<any>;
+    subItems?: NavigationItem[];
+  };
+
+  const navigation: NavigationItem[] = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Campaigns', href: '/campaigns', icon: Folders },
     { name: 'Briefs', href: '/briefs', icon: FileText },
-    { name: 'Brands', href: '/brands', icon: Briefcase },
     { name: 'Resources', href: '/resources', icon: Users },
+    { 
+      name: 'Settings', 
+      href: '/settings', 
+      icon: Settings, 
+      subItems: [
+        { name: 'Brands', href: '/brands', icon: Briefcase },
+        // Only show user management for admins
+        ...(user.role === 'admin' ? [{ name: 'Users', href: '/users', icon: Users }] : [])
+      ] 
+    }
   ];
 
   // Only show user management for admins
@@ -97,23 +121,68 @@ const DashboardLayout: React.FC = () => {
                   const Icon = item.icon;
                   return (
                     <li key={item.name}>
-                      <Link
-                        to={item.href}
-                        className={`${
-                          isActivePath(item.href)
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                        } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
-                      >
-                        <Icon
+                      {!item.subItems ? (
+                        <Link
+                          to={item.href}
                           className={`${
                             isActivePath(item.href)
-                              ? 'text-blue-600'
-                              : 'text-gray-400 group-hover:text-gray-500'
-                          } mr-4 flex-shrink-0 h-6 w-6`}
-                        />
-                        {item.name}
-                      </Link>
+                              ? 'bg-blue-50 text-blue-600'
+                              : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                          } group flex items-center px-2 py-2 text-base font-medium rounded-md`}
+                        >
+                          <Icon
+                            className={`${
+                              isActivePath(item.href)
+                                ? 'text-blue-600'
+                                : 'text-gray-400 group-hover:text-gray-500'
+                            } mr-4 flex-shrink-0 h-6 w-6`}
+                          />
+                          {item.name}
+                        </Link>
+                      ) : (
+                        <>
+                          <div 
+                            className={`${
+                              item.name === 'Settings' && isSettingsActive()
+                                ? 'text-blue-600 bg-blue-50'
+                                : 'text-gray-600'
+                            } px-2 py-2 text-base font-medium rounded-md flex items-center`}
+                          >
+                            <Icon className={`${
+                              item.name === 'Settings' && isSettingsActive()
+                                ? 'text-blue-600'
+                                : 'text-gray-400'
+                            } mr-4 flex-shrink-0 h-6 w-6`} />
+                            {item.name}
+                          </div>
+                          <ul className="pl-10 space-y-1 mt-1">
+                            {item.subItems.map((subItem) => {
+                              const SubIcon = subItem.icon;
+                              return (
+                                <li key={subItem.name}>
+                                  <Link
+                                    to={subItem.href}
+                                    className={`${
+                                      isActivePath(subItem.href)
+                                        ? 'bg-blue-50 text-blue-600'
+                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                                  >
+                                    <SubIcon
+                                      className={`${
+                                        isActivePath(subItem.href)
+                                          ? 'text-blue-600'
+                                          : 'text-gray-400 group-hover:text-gray-500'
+                                      } mr-3 flex-shrink-0 h-5 w-5`}
+                                    />
+                                    {subItem.name}
+                                  </Link>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </>
+                      )}
                     </li>
                   );
                 })}
@@ -137,24 +206,69 @@ const DashboardLayout: React.FC = () => {
               {navigation.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`${
-                      isActivePath(item.href)
-                        ? 'bg-blue-50 text-blue-600'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
-                  >
-                    <Icon
-                      className={`${
-                        isActivePath(item.href)
-                          ? 'text-blue-600'
-                          : 'text-gray-400 group-hover:text-gray-500'
-                      } mr-3 flex-shrink-0 h-6 w-6`}
-                    />
-                    {item.name}
-                  </Link>
+                  <React.Fragment key={item.name}>
+                    {!item.subItems ? (
+                      <Link
+                        to={item.href}
+                        className={`${
+                          isActivePath(item.href)
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                      >
+                        <Icon
+                          className={`${
+                            isActivePath(item.href)
+                              ? 'text-blue-600'
+                              : 'text-gray-400 group-hover:text-gray-500'
+                          } mr-3 flex-shrink-0 h-6 w-6`}
+                        />
+                        {item.name}
+                      </Link>
+                    ) : (
+                      <>
+                        <div 
+                          className={`${
+                            item.name === 'Settings' && isSettingsActive()
+                              ? 'text-blue-600 bg-blue-50'
+                              : 'text-gray-600'
+                          } px-2 py-2 text-sm font-medium rounded-md flex items-center`}
+                        >
+                          <Icon className={`${
+                            item.name === 'Settings' && isSettingsActive()
+                              ? 'text-blue-600'
+                              : 'text-gray-400'
+                          } mr-3 flex-shrink-0 h-6 w-6`} />
+                          {item.name}
+                        </div>
+                        <div className="pl-9 space-y-1 mt-1">
+                          {item.subItems.map((subItem) => {
+                            const SubIcon = subItem.icon;
+                            return (
+                              <Link
+                                key={subItem.name}
+                                to={subItem.href}
+                                className={`${
+                                  isActivePath(subItem.href)
+                                    ? 'bg-blue-50 text-blue-600'
+                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                              >
+                                <SubIcon
+                                  className={`${
+                                    isActivePath(subItem.href)
+                                      ? 'text-blue-600'
+                                      : 'text-gray-400 group-hover:text-gray-500'
+                                  } mr-3 flex-shrink-0 h-5 w-5`}
+                                />
+                                {subItem.name}
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      </>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </nav>
@@ -189,7 +303,25 @@ const DashboardLayout: React.FC = () => {
         <div className="flex-1 relative z-0 focus:outline-none">
           <div className="sticky top-0 z-10 bg-white border-b border-gray-200 flex px-4 sm:px-6 lg:px-8 py-4">
             <h1 className="text-2xl font-semibold text-gray-900 flex-1">
-              {navigation.find(item => isActivePath(item.href))?.name || 'Dashboard'}
+              {(() => {
+                // Find the active main item or sub-item
+                const activeMainItem = navigation.find(item => isActivePath(item.href));
+                if (activeMainItem && !activeMainItem.subItems) {
+                  return activeMainItem.name;
+                }
+                
+                // Check for active sub-items
+                for (const item of navigation) {
+                  if (item.subItems) {
+                    const activeSubItem = item.subItems.find(subItem => isActivePath(subItem.href));
+                    if (activeSubItem) {
+                      return activeSubItem.name;
+                    }
+                  }
+                }
+                
+                return 'Dashboard';
+              })()}
             </h1>
             
             {/* Notifications */}
