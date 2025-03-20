@@ -5,9 +5,10 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown, Layers, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
+import BriefsTimeline from '../components/BriefsTimeline';
 
 interface Brief {
   id: string;
@@ -58,7 +59,7 @@ const BriefsList = () => {
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'card'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'card' | 'calendar' | 'timeline'>('list');
   const [campaigns, setCampaigns] = useState<Array<any>>([]);
   
   // Add sorting state
@@ -957,6 +958,18 @@ const BriefsList = () => {
               </button>
               <button
                 type="button"
+                onClick={() => setViewMode('timeline')}
+                className={`px-3 py-2 text-sm font-medium ${
+                  viewMode === 'timeline' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } border-t border-b border-r border-gray-300 flex items-center`}
+              >
+                <Clock className="h-4 w-4 mr-1" />
+                Timeline
+              </button>
+              <button
+                type="button"
                 onClick={() => setViewMode('calendar')}
                 className={`px-3 py-2 text-sm font-medium ${
                   viewMode === 'calendar' 
@@ -1563,6 +1576,9 @@ const BriefsList = () => {
             </div>
           ))}
         </div>
+      ) : viewMode === 'timeline' ? (
+        // Timeline view
+        <BriefsTimeline briefs={filteredBriefs} />
       ) : (
         // Calendar view
         <MarketingCalendar 
