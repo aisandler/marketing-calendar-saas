@@ -236,7 +236,7 @@ const BriefsList = () => {
       brief.status.replace('_', ' '),
       // Priority removed as field no longer exists
       getResourceName(brief.resource_id),
-      getResourceMediaType(brief.resource_id) || 'Not specified',
+      brief.channel || 'Not specified',
       getUserName(brief.created_by)
     ].join(','));
     
@@ -267,6 +267,11 @@ const BriefsList = () => {
     if (!resourceId) return null;
     const resource = resources.find(r => r.id === resourceId);
     return resource ? resource.media_type : null;
+  };
+
+  // Get the media type of a brief (it's now the channel field)
+  const getBriefMediaType = (brief: Brief) => {
+    return brief?.channel || null;
   };
 
   // Handle column sort
@@ -332,13 +337,12 @@ const BriefsList = () => {
       return false;
     }
     
-    // Apply media type filter
+    // Apply media type filter (now using channel field)
     if (mediaTypeFilter) {
-      const resourceMediaType = getResourceMediaType(brief.resource_id);
       if (mediaTypeFilter === 'null') {
-        // Special case for resources without media type
-        if (resourceMediaType) return false;
-      } else if (resourceMediaType !== mediaTypeFilter) {
+        // Special case for briefs without a channel specified
+        if (brief.channel && brief.channel.trim() !== '') return false;
+      } else if (brief.channel !== mediaTypeFilter) {
         return false;
       }
     }
