@@ -3,6 +3,9 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { format, isAfter, isBefore, isToday } from 'date-fns';
 import CampaignFilters from '../components/campaigns/CampaignFilters';
+import CampaignCard from '../components/campaigns/CampaignCard';
+import CampaignTimeline from '../components/campaigns/CampaignTimeline';
+import CampaignCalendar from '../components/campaigns/CampaignCalendar';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { 
@@ -37,10 +40,13 @@ interface Campaign {
   created_by: string;
   created_at: string;
   updated_at: string;
-  brand: {
+  brand?: {
+    id: string;
     name: string;
   };
-  briefs: { count: number }[];
+  budget?: number;
+  total_cost?: number;
+  briefs?: { count: number }[];
 }
 
 interface Filters {
@@ -748,62 +754,17 @@ export default function CampaignsList() {
                     {!collapsedGroups[group] && (
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {groupCampaigns.map((campaign) => {
-                          const timeStatus = getTimeStatus(campaign.start_date, campaign.end_date, campaign.status);
-                          const progress = calculateProgress(campaign.start_date, campaign.end_date);
+                          // Prepare data for CampaignCard component
+                          const campaignWithStats = {
+                            ...campaign,
+                            brief_count: campaign.briefs?.[0]?.count || 0,
+                          };
                           
                           return (
-                            <Link key={campaign.id} to={`/campaigns/${campaign.id}`} className="block">
-                              <div className="bg-white shadow rounded-lg overflow-hidden hover:shadow-md transition-shadow h-full flex flex-col">
-                                <div className="p-4 flex-grow">
-                                  <div className="flex justify-between items-start mb-3">
-                                    <h3 className="text-md font-medium text-blue-600 truncate max-w-[70%]">{campaign.name}</h3>
-                                    <span className={`px-2 py-1 inline-flex text-xs font-medium rounded-full ${getStatusColor(campaign.status)}`}>
-                                      {campaign.status.charAt(0).toUpperCase() + campaign.status.slice(1)}
-                                    </span>
-                                  </div>
-                                  
-                                  <p className="text-sm text-gray-500 mb-3 line-clamp-2 h-10">
-                                    {campaign.description || 'No description provided'}
-                                  </p>
-                                  
-                                  <div className="text-xs text-gray-500 mb-1 flex justify-between">
-                                    <span>Progress</span>
-                                    <span>{timeStatus}</span>
-                                  </div>
-                                  
-                                  <div className="w-full bg-gray-200 rounded-full h-1.5 mb-3">
-                                    <div 
-                                      className={`h-1.5 rounded-full ${
-                                        timeStatus === 'Overdue' ? 'bg-red-600' :
-                                        timeStatus === 'Complete' ? 'bg-green-600' :
-                                        timeStatus === 'Cancelled' ? 'bg-gray-400' :
-                                        'bg-blue-600'
-                                      }`} 
-                                      style={{ width: `${progress}%` }}
-                                    />
-                                  </div>
-                                </div>
-                                
-                                <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
-                                  <div className="flex justify-between">
-                                    <div>
-                                      <span className="block text-xs text-gray-500">Brand</span>
-                                      <span className="block text-sm font-medium text-gray-900">{campaign.brand?.name || 'No brand'}</span>
-                                    </div>
-                                    <div>
-                                      <span className="block text-xs text-gray-500">Briefs</span>
-                                      <span className="block text-sm font-medium text-center text-gray-900">{campaign.briefs?.[0]?.count || 0}</span>
-                                    </div>
-                                    <div>
-                                      <span className="block text-xs text-gray-500">Timeline</span>
-                                      <span className="block text-sm text-gray-900">
-                                        {format(new Date(campaign.start_date), 'MMM d')} - {format(new Date(campaign.end_date), 'MMM d, yy')}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            </Link>
+                            <CampaignCard 
+                              key={campaign.id}
+                              campaign={campaignWithStats}
+                            />
                           );
                         })}
                       </div>
@@ -811,6 +772,16 @@ export default function CampaignsList() {
                   </div>
                 ))}
               </div>
+            )}
+            
+            {/* TIMELINE VIEW */}
+            {viewMode === 'timeline' && (
+              <CampaignTimeline campaigns={campaigns} />
+            )}
+            
+            {/* CALENDAR VIEW */}
+            {viewMode === 'calendar' && (
+              <CampaignCalendar campaigns={campaigns} />
             )}
             
             {/* Pagination controls */}
