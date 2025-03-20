@@ -89,3 +89,79 @@ export function getStatusColor(status: string): string {
       return 'bg-gray-100 text-gray-800';
   }
 }
+
+/**
+ * Get a color based on the channel/media type
+ */
+export const getChannelColor = (channel: string | null): string => {
+  if (!channel) return '#e5e7eb'; // Default gray
+  
+  const channelLower = channel.toLowerCase();
+  
+  if (channelLower.includes('website') || channelLower.includes('web')) {
+    return '#3b82f6'; // blue-500
+  } else if (channelLower.includes('video') || channelLower.includes('youtube')) {
+    return '#ef4444'; // red-500
+  } else if (channelLower.includes('email')) {
+    return '#f59e0b'; // amber-500
+  } else if (channelLower.includes('social') || channelLower.includes('media')) {
+    return '#10b981'; // emerald-500
+  } else if (channelLower.includes('print')) {
+    return '#6366f1'; // indigo-500
+  } else if (channelLower.includes('design')) {
+    return '#ec4899'; // pink-500
+  } else if (channelLower.includes('instagram')) {
+    return '#d946ef'; // fuchsia-500
+  } else if (channelLower.includes('facebook')) {
+    return '#2563eb'; // blue-600
+  } else if (channelLower.includes('linkedin')) {
+    return '#1d4ed8'; // blue-700
+  } else if (channelLower.includes('twitter')) {
+    return '#60a5fa'; // blue-400
+  } else if (channelLower.includes('blog')) {
+    return '#0ea5e9'; // sky-500
+  } else if (channelLower.includes('podcast')) {
+    return '#7c3aed'; // violet-600
+  }
+  
+  return '#6b7280'; // Default gray-500
+};
+
+/**
+ * Calculate a progress percentage based on the brief status
+ */
+export const getProgressPercentage = (status: string): number => {
+  const statusMap: {[key: string]: number} = {
+    'draft': 10,
+    'pending_approval': 25,
+    'approved': 40,
+    'in_progress': 60,
+    'review': 80,
+    'complete': 100,
+    'cancelled': 0
+  };
+  
+  return statusMap[status] || 0;
+};
+
+/**
+ * Calculate days remaining until due date
+ */
+export const getDaysRemaining = (dueDate: string | Date): string => {
+  const now = new Date();
+  const due = new Date(dueDate);
+  const diffTime = due.getTime() - now.getTime();
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (diffDays < 0) {
+    return `Overdue by ${Math.abs(diffDays)} ${Math.abs(diffDays) === 1 ? 'day' : 'days'}`;
+  } else if (diffDays === 0) {
+    return 'Due today';
+  } else if (diffDays === 1) {
+    return 'Due tomorrow';
+  } else if (diffDays <= 7) {
+    return `Due in ${diffDays} days`;
+  } else {
+    return `Due in ${Math.floor(diffDays / 7)} ${Math.floor(diffDays / 7) === 1 ? 'week' : 'weeks'}`;
+  }
+};
