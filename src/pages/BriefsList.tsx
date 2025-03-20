@@ -192,9 +192,6 @@ const BriefsList = () => {
         setUsers(usersData as User[]);
         setBrands(brandsData || []);
         setMediaTypes(uniqueMediaTypes);
-
-        // Calculate resource utilization
-        calculateResourceUtilization(briefsData);
       } catch (error: any) {
         console.error('Error fetching data:', error);
         setError(error?.message || 'An unexpected error occurred while loading data');
@@ -409,12 +406,76 @@ const BriefsList = () => {
   // Count completed briefs that aren't shown
   const completedBriefsCount = !showCompleted ? briefs.filter(brief => brief.status === 'complete').length : 0;
 
-  // Get background color for utilization bar
-  const getUtilizationBgColor = (percent: number) => {
-    if (percent < 50) return 'bg-emerald-500';
-    if (percent < 75) return 'bg-blue-500';
-    if (percent < 90) return 'bg-amber-500';
-    return 'bg-red-500';
+  // Get media type color based on channel
+  const getMediaTypeColor = (channel: string | null): string => {
+    if (!channel) return "border-gray-300";
+    
+    const channelLower = channel.toLowerCase();
+    
+    if (channelLower.includes('website') || channelLower.includes('web')) {
+      return "border-blue-500";
+    } else if (channelLower.includes('video')) {
+      return "border-purple-500";
+    } else if (channelLower.includes('email')) {
+      return "border-amber-500";
+    } else if (channelLower.includes('social') && channelLower.includes('media')) {
+      return "border-green-500";
+    } else if (channelLower.includes('print')) {
+      return "border-indigo-500";
+    } else if (channelLower.includes('design')) {
+      return "border-pink-500";
+    } else if (channelLower.includes('image') || channelLower.includes('photo')) {
+      return "border-emerald-500";
+    } else if (channelLower.includes('youtube')) {
+      return "border-red-500";
+    } else if (channelLower.includes('instagram')) {
+      return "border-pink-500";
+    } else if (channelLower.includes('facebook')) {
+      return "border-blue-600";
+    } else if (channelLower.includes('linkedin')) {
+      return "border-blue-700";
+    } else if (channelLower.includes('twitter')) {
+      return "border-blue-400";
+    }
+    
+    // Default color
+    return "border-gray-300";
+  };
+
+  // Get channel icon based on the brief's channel field
+  const getChannelIcon = (channel: string | null) => {
+    if (!channel) return <FileText size={16} className="text-gray-400" />;
+    
+    const channelLower = channel.toLowerCase();
+    
+    if (channelLower.includes('website') || channelLower.includes('web')) {
+      return <Globe size={16} className="text-blue-500" />;
+    } else if (channelLower.includes('video')) {
+      return <Film size={16} className="text-purple-500" />;
+    } else if (channelLower.includes('email')) {
+      return <Mail size={16} className="text-amber-500" />;
+    } else if (channelLower.includes('social') && channelLower.includes('media')) {
+      return <MessageSquare size={16} className="text-green-500" />;
+    } else if (channelLower.includes('print')) {
+      return <FileText size={16} className="text-indigo-500" />;
+    } else if (channelLower.includes('design')) {
+      return <PenTool size={16} className="text-pink-500" />;
+    } else if (channelLower.includes('image') || channelLower.includes('photo')) {
+      return <Image size={16} className="text-emerald-500" />;
+    } else if (channelLower.includes('youtube')) {
+      return <Youtube size={16} className="text-red-500" />;
+    } else if (channelLower.includes('instagram')) {
+      return <Instagram size={16} className="text-pink-500" />;
+    } else if (channelLower.includes('facebook')) {
+      return <Facebook size={16} className="text-blue-600" />;
+    } else if (channelLower.includes('linkedin')) {
+      return <Linkedin size={16} className="text-blue-700" />;
+    } else if (channelLower.includes('twitter')) {
+      return <Twitter size={16} className="text-blue-400" />;
+    }
+    
+    // Default icon
+    return <FileText size={16} className="text-gray-500" />;
   };
 
   // Get deadline proximity indicator
@@ -581,108 +642,6 @@ const BriefsList = () => {
       console.error('Error updating brief status:', error);
       alert('An unexpected error occurred');
     }
-  };
-
-  // Calculate resource utilization based on briefs
-  const calculateResourceUtilization = (briefsData: Brief[]) => {
-    const utilization: Record<string, number> = {};
-    
-    // Group briefs by resource
-    const resourceBriefs: Record<string, Brief[]> = {};
-    
-    briefsData.forEach(brief => {
-      if (brief.resource_id) {
-        if (!resourceBriefs[brief.resource_id]) {
-          resourceBriefs[brief.resource_id] = [];
-        }
-        resourceBriefs[brief.resource_id].push(brief);
-      }
-    });
-    
-    // Calculate utilization for each resource
-    Object.keys(resourceBriefs).forEach(resourceId => {
-      const briefs = resourceBriefs[resourceId];
-      const now = new Date();
-      const twoWeeksFromNow = new Date();
-      twoWeeksFromNow.setDate(now.getDate() + 14);
-      
-      // Calculate hours in next two weeks
-      const hoursInPeriod = briefs.reduce((total, brief) => {
-        const briefDate = new Date(brief.due_date);
-        // Only count briefs due in the next two weeks and not completed
-        if (briefDate >= now && briefDate <= twoWeeksFromNow && brief.status !== 'complete' && brief.status !== 'cancelled') {
-          return total + (brief.estimated_hours || 0);
-        }
-        return total;
-      }, 0);
-      
-      // Assume 40 hours/week capacity (80 hours for two weeks)
-      const utilizationPercent = Math.min(100, Math.round((hoursInPeriod / 80) * 100));
-      utilization[resourceId] = utilizationPercent;
-    });
-    
-    setResourceUtilization(utilization);
-  };
-
-  // Get utilization display for a resource
-  const getResourceUtilizationDisplay = (resourceId: string | null) => {
-    if (!resourceId || resourceUtilization[resourceId] === undefined) return null;
-    
-    const utilization = resourceUtilization[resourceId];
-    let color = 'bg-green-500';
-    
-    if (utilization >= 90) {
-      color = 'bg-red-500'; // Overallocated
-    } else if (utilization >= 70) {
-      color = 'bg-amber-500'; // Heavily allocated
-    } else if (utilization >= 40) {
-      color = 'bg-blue-500'; // Moderately allocated
-    }
-    
-    return (
-      <div className="ml-2 flex items-center" title={`${utilization}% utilized in next 2 weeks`}>
-        <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-          <div className={`h-full ${color}`} style={{ width: `${utilization}%` }}></div>
-        </div>
-        <span className="text-xs ml-1 text-gray-500">{utilization}%</span>
-      </div>
-    );
-  };
-
-  // Get channel icon based on the brief's channel field
-  const getChannelIcon = (channel: string | null) => {
-    if (!channel) return <FileText size={16} className="text-gray-400" />;
-    
-    const channelLower = channel.toLowerCase();
-    
-    if (channelLower.includes('website') || channelLower.includes('web')) {
-      return <Globe size={16} className="text-blue-500" />;
-    } else if (channelLower.includes('video')) {
-      return <Film size={16} className="text-purple-500" />;
-    } else if (channelLower.includes('email')) {
-      return <Mail size={16} className="text-amber-500" />;
-    } else if (channelLower.includes('social') && channelLower.includes('media')) {
-      return <MessageSquare size={16} className="text-green-500" />;
-    } else if (channelLower.includes('print')) {
-      return <FileText size={16} className="text-indigo-500" />;
-    } else if (channelLower.includes('design')) {
-      return <PenTool size={16} className="text-pink-500" />;
-    } else if (channelLower.includes('image') || channelLower.includes('photo')) {
-      return <Image size={16} className="text-emerald-500" />;
-    } else if (channelLower.includes('youtube')) {
-      return <Youtube size={16} className="text-red-500" />;
-    } else if (channelLower.includes('instagram')) {
-      return <Instagram size={16} className="text-pink-500" />;
-    } else if (channelLower.includes('facebook')) {
-      return <Facebook size={16} className="text-blue-600" />;
-    } else if (channelLower.includes('linkedin')) {
-      return <Linkedin size={16} className="text-blue-700" />;
-    } else if (channelLower.includes('twitter')) {
-      return <Twitter size={16} className="text-blue-400" />;
-    }
-    
-    // Default icon
-    return <FileText size={16} className="text-gray-500" />;
   };
 
   if (loading) {
@@ -1111,7 +1070,6 @@ const BriefsList = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.resource?.name || 'Unassigned'}>
                         <div className="flex items-center">
                           <span className="truncate">{brief.resource?.name || 'Unassigned'}</span>
-                          {brief.resource_id && getResourceUtilizationDisplay(brief.resource_id)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
@@ -1169,23 +1127,20 @@ const BriefsList = () => {
           </div>
         </div>
       ) : viewMode === 'card' ? (
-        // Card view
+        // Card view - enhanced with better styling
         <div className="bg-white shadow rounded-lg p-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
             {filteredBriefs.length > 0 ? (
               filteredBriefs.map((brief) => (
                 <div 
                   key={brief.id} 
-                  className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-150 relative group"
+                  className={`border-l-4 ${getMediaTypeColor(brief.channel)} rounded-lg overflow-hidden shadow hover:shadow-md transition-all duration-150 relative group bg-white hover:translate-y-[-2px]`}
                 >
-                  {/* Priority indicator */}
-                  {getPriorityIndicator(brief)}
-                  
                   {/* Card Header */}
-                  <div className="p-4 border-b border-gray-100">
-                    <div className="flex justify-between items-start mb-2">
+                  <div className="p-5 border-b border-gray-100">
+                    <div className="flex justify-between items-start mb-3">
                       <h3 className="font-medium text-blue-600 truncate max-w-[70%]" title={brief.title}>
-                        <Link to={`/briefs/${brief.id}`} className="hover:text-blue-800">
+                        <Link to={`/briefs/${brief.id}`} className="hover:text-blue-800 text-base">
                           {brief.title}
                         </Link>
                       </h3>
@@ -1221,10 +1176,10 @@ const BriefsList = () => {
                   </div>
                   
                   {/* Card Content */}
-                  <div className="p-4">
-                    <div className="flex justify-between mb-3">
+                  <div className="p-5 bg-gray-50">
+                    <div className="flex justify-between mb-4">
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Due Date</div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">Due Date</div>
                         <div className="flex items-center">
                           {getDeadlineIndicator(brief.due_date).icon}
                           <span className={`text-sm ${getDeadlineIndicator(brief.due_date).color}`}>
@@ -1234,37 +1189,36 @@ const BriefsList = () => {
                       </div>
                       
                       <div>
-                        <div className="text-xs text-gray-500 mb-1">Resource</div>
+                        <div className="text-xs font-medium text-gray-500 mb-1">Resource</div>
                         <div className="flex items-center text-sm">
                           <span className="truncate max-w-[100px]">{brief.resource?.name || 'Unassigned'}</span>
-                          {brief.resource_id && getResourceUtilizationDisplay(brief.resource_id)}
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center border-t border-gray-200 pt-3 mt-1">
                       <div className="text-xs text-gray-500">
                         <span>Created by {brief.created_by_user?.name || 'Unknown'}</span>
                       </div>
                       
-                      <div className="flex space-x-1">
+                      <div className="flex space-x-2">
                         <Link 
                           to={`/briefs/${brief.id}`}
-                          className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                          className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
                           title="View Brief"
                         >
                           <Eye size={16} />
                         </Link>
                         <button
                           onClick={() => handleDuplicate(brief)}
-                          className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                          className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
                           title="Duplicate Brief"
                         >
                           <Copy size={16} />
                         </button>
                         <button
                           onClick={() => handleArchive(brief.id)}
-                          className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                          className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
                           title="Archive Brief"
                         >
                           <Archive size={16} />
