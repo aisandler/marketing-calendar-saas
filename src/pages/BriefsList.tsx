@@ -1206,11 +1206,6 @@ const BriefsList = () => {
                 <div 
                   key={brief.id}
                   className={`border-l-4 ${getMediaTypeColor(brief.channel)} rounded-lg overflow-hidden shadow hover:shadow-md transition-all duration-300 relative group bg-white hover:translate-y-[-2px]`}
-                  style={{
-                    animation: `fadeMove 0.5s ease-out`,
-                    transformOrigin: 'center'
-                  }}
-                  data-sort-key={getSortKey(brief)}
                 >
                   {/* Card Header */}
                   <div className="p-5 border-b border-gray-100">
@@ -1329,20 +1324,6 @@ const BriefsList = () => {
           campaigns={campaigns}
         />
       )}
-
-      {/* CSS animations for card sorting */}
-      <style>{`
-        @keyframes fadeMove {
-          0% {
-            opacity: 0.7;
-            transform: translateY(10px);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 };
