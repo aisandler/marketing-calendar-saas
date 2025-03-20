@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter, ArrowUpDown, Layers } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -68,6 +68,10 @@ const BriefsList = () => {
   const [filterCount, setFilterCount] = useState(0);
   const [showCompleted, setShowCompleted] = useState(false);
   const [resourceUtilization, setResourceUtilization] = useState<Record<string, number>>({});
+  
+  // Add state for grouping
+  const [groupBy, setGroupBy] = useState<'none' | 'status' | 'campaign'>('none');
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   // Sort options dropdown for card view
   const sortOptions = [
@@ -557,7 +561,7 @@ const BriefsList = () => {
   };
 
   // Get priority indicator based on status
-  const getPriorityIndicator = (brief: Brief) => {
+  const getPriorityIndicator = (brief: Brief, isCardView: boolean = false) => {
     // Use status to determine visual priority for now
     const statusPriority: Record<string, string> = {
       'draft': 'low',
@@ -683,6 +687,106 @@ const BriefsList = () => {
     }
   };
 
+  // Group briefs based on the groupBy setting
+  const groupedBriefs = useMemo(() => {
+    if (groupBy === 'none') {
+      return { 'All Briefs': filteredBriefs };
+    }
+    
+    const groups: Record<string, Brief[]> = {};
+    
+    if (groupBy === 'status') {
+      // Define status order for sorting
+      const statusOrder = [
+        'draft',
+        'pending_approval',
+        'approved',
+        'in_progress',
+        'review',
+        'complete',
+        'cancelled'
+      ];
+      
+      // Initialize groups with empty arrays for all possible statuses
+      statusOrder.forEach(status => {
+        const displayName = status
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        groups[displayName] = [];
+      });
+      
+      // Group briefs by status
+      filteredBriefs.forEach(brief => {
+        const statusDisplayName = brief.status
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+        
+        if (!groups[statusDisplayName]) {
+          groups[statusDisplayName] = [];
+        }
+        
+        groups[statusDisplayName].push(brief);
+      });
+      
+      // Remove empty groups
+      Object.keys(groups).forEach(key => {
+        if (groups[key].length === 0) {
+          delete groups[key];
+        }
+      });
+    } else if (groupBy === 'campaign') {
+      // Default group for briefs without a campaign
+      groups['No Campaign'] = [];
+      
+      // Group briefs by campaign
+      filteredBriefs.forEach(brief => {
+        const campaignId = brief.campaign_id;
+        const campaign = campaigns.find(c => c.id === campaignId);
+        const campaignName = campaign ? campaign.name : 'No Campaign';
+        
+        if (!groups[campaignName]) {
+          groups[campaignName] = [];
+        }
+        
+        if (campaignId === null) {
+          groups['No Campaign'].push(brief);
+        } else {
+          groups[campaignName].push(brief);
+        }
+      });
+      
+      // Remove No Campaign group if empty
+      if (groups['No Campaign'].length === 0) {
+        delete groups['No Campaign'];
+      }
+    }
+    
+    return groups;
+  }, [filteredBriefs, groupBy, campaigns]);
+  
+  // Toggle group collapse state
+  const toggleGroupCollapse = (groupName: string) => {
+    setCollapsedGroups(prev => ({
+      ...prev,
+      [groupName]: !prev[groupName]
+    }));
+  };
+  
+  // Initialize collapse state for new groups
+  useEffect(() => {
+    const groupNames = Object.keys(groupedBriefs);
+    const newCollapsedState: Record<string, boolean> = {};
+    
+    // Preserve existing collapse states and initialize new ones to false (expanded)
+    groupNames.forEach(name => {
+      newCollapsedState[name] = collapsedGroups[name] || false;
+    });
+    
+    setCollapsedGroups(newCollapsedState);
+  }, [groupBy, groupedBriefs]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -753,6 +857,26 @@ const BriefsList = () => {
                 <Calendar className="h-4 w-4 mr-1" />
                 Calendar
               </button>
+            </div>
+
+            {/* Group by control */}
+            <div className="relative z-10">
+              <Button 
+                variant="outline" 
+                className="px-3 py-2 flex items-center gap-1"
+              >
+                <Layers className="h-4 w-4" />
+                <span className="mr-1">Group by:</span>
+                <select
+                  value={groupBy}
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'status' | 'campaign')}
+                  className="border-none bg-transparent focus:ring-0 text-sm p-0 -ml-1 cursor-pointer"
+                >
+                  <option value="none">None</option>
+                  <option value="status">Status</option>
+                  <option value="campaign">Campaign</option>
+                </select>
+              </Button>
             </div>
 
             {/* Search */}
@@ -956,366 +1080,357 @@ const BriefsList = () => {
       </div>
 
       {viewMode === 'list' ? (
-        // Table view
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="overflow-x-auto w-full">
-            <table className="min-w-full w-max divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('title')}
-                    onClick={() => handleSort('title')}
-                    title="Click to sort by title"
-                  >
-                    <div className="flex items-center">
-                      Title
-                      {getSortIndicator('title')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('channel')}
-                    onClick={() => handleSort('channel')}
-                    title="Click to sort by media type"
-                    style={{ width: '120px' }}
-                  >
-                    <div className="flex items-center">
-                      Media Type
-                      {getSortIndicator('channel')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('due_date')}
-                    onClick={() => handleSort('due_date')}
-                    title="Click to sort by due date"
-                    style={{ width: '120px' }}
-                  >
-                    <div className="flex items-center">
-                      Due Date
-                      {getSortIndicator('due_date')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('status')}
-                    onClick={() => handleSort('status')}
-                    title="Click to sort by status"
-                    style={{ width: '140px' }}
-                  >
-                    <div className="flex items-center">
-                      Status
-                      {getSortIndicator('status')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('brand')}
-                    onClick={() => handleSort('brand')}
-                    title="Click to sort by brand"
-                    style={{ width: '150px' }}
-                  >
-                    <div className="flex items-center">
-                      Brand
-                      {getSortIndicator('brand')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('resource')}
-                    onClick={() => handleSort('resource')}
-                    title="Click to sort by resource"
-                    style={{ width: '150px' }}
-                  >
-                    <div className="flex items-center">
-                      Resource
-                      {getSortIndicator('resource')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col" 
-                    className={getColumnHeaderClass('created_by')}
-                    onClick={() => handleSort('created_by')}
-                    title="Click to sort by creator"
-                    style={{ width: '150px' }}
-                  >
-                    <div className="flex items-center">
-                      Created By
-                      {getSortIndicator('created_by')}
-                    </div>
-                  </th>
-                  <th 
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    style={{ width: '140px' }}
-                  >
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredBriefs.length > 0 ? (
-                  filteredBriefs.map((brief) => (
-                    <tr 
-                      key={brief.id} 
-                      className="hover:bg-gray-50 transition-colors duration-150 relative group"
-                    >
-                      {/* Priority indicator should not cause column misalignment */}
-                      <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50 relative">
-                        {getPriorityIndicator(brief)}
-                        <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-800 max-w-md truncate inline-block font-medium">
-                          {brief.title}
-                        </Link>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
-                        <div className="flex items-center">
-                          {getChannelIcon(brief.channel)}
-                          <span className="ml-2">{brief.channel}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm group-hover:bg-gray-50">
-                        <div className="flex items-center">
-                          {getDeadlineIndicator(brief.due_date).icon}
-                          <span className={getDeadlineIndicator(brief.due_date).color}>
-                            {formatDate(brief.due_date)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50">
-                        <select
-                          className={`px-2 py-1 text-xs rounded cursor-pointer appearance-none pr-7 relative ${getStatusColor(brief.status)} focus:ring-2 focus:ring-blue-500 focus:outline-none`}
-                          value={brief.status}
-                          onChange={(e) => handleStatusChange(brief.id, e.target.value)}
-                          style={{ 
-                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                            backgroundPosition: 'right 0.2rem center',
-                            backgroundRepeat: 'no-repeat',
-                            backgroundSize: '1em 1em'
-                          }}
+        // Table view with grouping
+        <>
+          {Object.entries(groupedBriefs).map(([groupName, groupBriefs]) => (
+            <div key={groupName} className="mb-4 bg-white shadow rounded-lg overflow-hidden">
+              {/* Group Header */}
+              <div 
+                className="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleGroupCollapse(groupName)}
+              >
+                <div className="flex items-center">
+                  {collapsedGroups[groupName] ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-500 mr-2" />
+                  )}
+                  <h3 className="font-medium text-gray-700">{groupName}</h3>
+                  <span className="ml-2 text-sm text-gray-500">({groupBriefs.length} {groupBriefs.length === 1 ? 'brief' : 'briefs'})</span>
+                </div>
+              </div>
+              
+              {/* Group Content */}
+              {!collapsedGroups[groupName] && (
+                <div className="overflow-x-auto w-full">
+                  <table className="min-w-full w-max divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('title')}
+                          onClick={() => handleSort('title')}
+                          title="Click to sort by title"
                         >
-                          <option value="draft">Draft</option>
-                          <option value="pending_approval">Pending Approval</option>
-                          <option value="approved">Approved</option>
-                          <option value="in_progress">In Progress</option>
-                          <option value="review">Review</option>
-                          <option value="complete">Complete</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.brand?.name || 'Unknown'}>
-                        {brief.brand?.name || 'Unknown'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.resource?.name || 'Unassigned'}>
-                        <div className="flex items-center">
-                          <span className="truncate">{brief.resource?.name || 'Unassigned'}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
-                        {brief.created_by_user?.name || 'Unknown'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
-                        <div className="flex items-center space-x-3">
-                          <div className="flex space-x-1">
-                            <Link 
-                              to={`/briefs/${brief.id}`}
-                              className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                              title="View Brief"
-                            >
-                              <Eye size={16} />
-                            </Link>
-                            <button
-                              onClick={() => handleDuplicate(brief)}
-                              className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
-                              title="Duplicate Brief"
-                            >
-                              <Copy size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleArchive(brief.id)}
-                              className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
-                              title="Archive Brief"
-                            >
-                              <Archive size={16} />
-                            </button>
+                          <div className="flex items-center">
+                            Title
+                            {getSortIndicator('title')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('channel')}
+                          onClick={() => handleSort('channel')}
+                          title="Click to sort by media type"
+                          style={{ width: '120px' }}
+                        >
+                          <div className="flex items-center">
+                            Media Type
+                            {getSortIndicator('channel')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('due_date')}
+                          onClick={() => handleSort('due_date')}
+                          title="Click to sort by due date"
+                          style={{ width: '120px' }}
+                        >
+                          <div className="flex items-center">
+                            Due Date
+                            {getSortIndicator('due_date')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('status')}
+                          onClick={() => handleSort('status')}
+                          title="Click to sort by status"
+                          style={{ width: '140px' }}
+                        >
+                          <div className="flex items-center">
+                            Status
+                            {getSortIndicator('status')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('brand')}
+                          onClick={() => handleSort('brand')}
+                          title="Click to sort by brand"
+                          style={{ width: '150px' }}
+                        >
+                          <div className="flex items-center">
+                            Brand
+                            {getSortIndicator('brand')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('resource')}
+                          onClick={() => handleSort('resource')}
+                          title="Click to sort by resource"
+                          style={{ width: '150px' }}
+                        >
+                          <div className="flex items-center">
+                            Resource
+                            {getSortIndicator('resource')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col" 
+                          className={getColumnHeaderClass('created_by')}
+                          onClick={() => handleSort('created_by')}
+                          title="Click to sort by creator"
+                          style={{ width: '150px' }}
+                        >
+                          <div className="flex items-center">
+                            Created By
+                            {getSortIndicator('created_by')}
+                          </div>
+                        </th>
+                        <th 
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                          style={{ width: '140px' }}
+                        >
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {groupBriefs.length > 0 ? (
+                        groupBriefs.map((brief) => (
+                          <tr 
+                            key={brief.id} 
+                            className="hover:bg-gray-50 transition-colors duration-150 relative group"
+                          >
+                            {/* Priority indicator should not cause column misalignment */}
+                            <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50 relative">
+                              {getPriorityIndicator(brief)}
+                              <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-800 max-w-md truncate inline-block font-medium">
+                                {brief.title}
+                              </Link>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
+                              <div className="flex items-center">
+                                {getChannelIcon(brief.channel)}
+                                <span className="ml-2">{brief.channel}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm group-hover:bg-gray-50">
+                              <div className="flex items-center">
+                                {getDeadlineIndicator(brief.due_date).icon}
+                                <span className={getDeadlineIndicator(brief.due_date).color}>
+                                  {formatDate(brief.due_date)}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50">
+                              <select
+                                className={`px-2 py-1 text-xs rounded cursor-pointer appearance-none pr-7 relative ${getStatusColor(brief.status)} focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+                                value={brief.status}
+                                onChange={(e) => handleStatusChange(brief.id, e.target.value)}
+                                style={{ 
+                                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                                  backgroundPosition: 'right 0.2rem center',
+                                  backgroundRepeat: 'no-repeat',
+                                  backgroundSize: '1em 1em'
+                                }}
+                              >
+                                <option value="draft">Draft</option>
+                                <option value="pending_approval">Pending Approval</option>
+                                <option value="approved">Approved</option>
+                                <option value="in_progress">In Progress</option>
+                                <option value="review">Review</option>
+                                <option value="complete">Complete</option>
+                                <option value="cancelled">Cancelled</option>
+                              </select>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.brand?.name || 'Unknown'}>
+                              {brief.brand?.name || 'Unknown'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.resource?.name || 'Unassigned'}>
+                              <div className="flex items-center">
+                                <span className="truncate">{brief.resource?.name || 'Unassigned'}</span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
+                              {brief.created_by_user?.name || 'Unknown'}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
+                              <div className="flex items-center space-x-3">
+                                <div className="flex space-x-1">
+                                  <Link 
+                                    to={`/briefs/${brief.id}`}
+                                    className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                                    title="View Brief"
+                                  >
+                                    <Eye size={16} />
+                                  </Link>
+                                  <button
+                                    onClick={() => handleDuplicate(brief)}
+                                    className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                                    title="Duplicate Brief"
+                                  >
+                                    <Copy size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => handleArchive(brief.id)}
+                                    className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                                    title="Archive Brief"
+                                  >
+                                    <Archive size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
+                            No briefs found in this group.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
+        </>
+      ) : viewMode === 'card' ? (
+        // Card view with grouping
+        <div className="space-y-6">
+          {Object.entries(groupedBriefs).map(([groupName, groupBriefs]) => (
+            <div key={groupName} className="bg-white shadow rounded-lg overflow-hidden">
+              {/* Group Header */}
+              <div 
+                className="bg-gray-50 p-4 border-b border-gray-200 flex justify-between items-center cursor-pointer"
+                onClick={() => toggleGroupCollapse(groupName)}
+              >
+                <div className="flex items-center">
+                  {collapsedGroups[groupName] ? (
+                    <ChevronDown className="h-5 w-5 text-gray-500 mr-2" />
+                  ) : (
+                    <ChevronUp className="h-5 w-5 text-gray-500 mr-2" />
+                  )}
+                  <h3 className="font-medium text-gray-700">{groupName}</h3>
+                  <span className="ml-2 text-sm text-gray-500">({groupBriefs.length} {groupBriefs.length === 1 ? 'brief' : 'briefs'})</span>
+                </div>
+              </div>
+              
+              {/* Group Content */}
+              {!collapsedGroups[groupName] && (
+                <div className="p-4">
+                  {groupBriefs.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {groupBriefs.map((brief) => (
+                        <div key={brief.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow transition-shadow duration-200 relative overflow-hidden">
+                          {getPriorityIndicator(brief, true)}
+                          <div className="p-4">
+                            <div className="flex justify-between items-start mb-2">
+                              <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-800 font-medium text-lg truncate max-w-[80%]">
+                                {brief.title}
+                              </Link>
+                              <div className="flex items-center space-x-1">
+                                <Link 
+                                  to={`/briefs/${brief.id}`}
+                                  className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                                  title="View Brief"
+                                >
+                                  <Eye size={16} />
+                                </Link>
+                                <button
+                                  onClick={() => handleDuplicate(brief)}
+                                  className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                                  title="Duplicate Brief"
+                                >
+                                  <Copy size={16} />
+                                </button>
+                                <button
+                                  onClick={() => handleArchive(brief.id)}
+                                  className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                                  title="Archive Brief"
+                                >
+                                  <Archive size={16} />
+                                </button>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <div className="flex items-center">
+                                  {getChannelIcon(brief.channel)}
+                                  <span className="ml-2 text-gray-600">{brief.channel}</span>
+                                </div>
+                                <select
+                                  className={`px-2 py-1 text-xs rounded cursor-pointer appearance-none pr-7 relative ${getStatusColor(brief.status)} focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+                                  value={brief.status}
+                                  onChange={(e) => handleStatusChange(brief.id, e.target.value)}
+                                  style={{ 
+                                    backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                                    backgroundPosition: 'right 0.2rem center',
+                                    backgroundRepeat: 'no-repeat',
+                                    backgroundSize: '1em 1em'
+                                  }}
+                                >
+                                  <option value="draft">Draft</option>
+                                  <option value="pending_approval">Pending Approval</option>
+                                  <option value="approved">Approved</option>
+                                  <option value="in_progress">In Progress</option>
+                                  <option value="review">Review</option>
+                                  <option value="complete">Complete</option>
+                                  <option value="cancelled">Cancelled</option>
+                                </select>
+                              </div>
+                              
+                              <div className="flex justify-between">
+                                <div className="text-gray-600">Due:</div>
+                                <div className="flex items-center">
+                                  {getDeadlineIndicator(brief.due_date).icon}
+                                  <span className={getDeadlineIndicator(brief.due_date).color}>
+                                    {formatDate(brief.due_date)}
+                                  </span>
+                                </div>
+                              </div>
+                              
+                              <div className="flex justify-between">
+                                <div className="text-gray-600">Brand:</div>
+                                <div className="text-gray-800 font-medium max-w-[65%] truncate text-right" title={brief.brand?.name || 'Unknown'}>
+                                  {brief.brand?.name || 'Unknown'}
+                                </div>
+                              </div>
+                              
+                              <div className="flex justify-between">
+                                <div className="text-gray-600">Resource:</div>
+                                <div className="text-gray-800 font-medium max-w-[65%] truncate text-right" title={brief.resource?.name || 'Unassigned'}>
+                                  {brief.resource?.name || 'Unassigned'}
+                                </div>
+                              </div>
+                              
+                              <div className="flex justify-between">
+                                <div className="text-gray-600">Created by:</div>
+                                <div className="text-gray-800 font-medium max-w-[65%] truncate text-right" title={brief.created_by_user?.name || 'Unknown'}>
+                                  {brief.created_by_user?.name || 'Unknown'}
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={8} className="px-6 py-4 text-center text-sm text-gray-500">
-                      No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
-                        <button 
-                          onClick={resetFilters}
-                          className="text-blue-600 hover:text-blue-800"
-                        >
-                          Clear filters
-                        </button>
-                      ) : (
-                        <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
-                          Create your first brief
-                        </Link>
-                      )}
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : viewMode === 'card' ? (
-        // Card view - enhanced with better styling
-        <div className="bg-white shadow rounded-lg p-6">
-          {/* Card view sorting controls */}
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-sm font-medium text-gray-700">
-              Showing {filteredBriefs.length} {filteredBriefs.length === 1 ? 'brief' : 'briefs'}
-            </h3>
-            
-            <div className="flex items-center">
-              <label htmlFor="card-sort" className="mr-2 text-sm text-gray-600">Sort by:</label>
-              <div className="relative">
-                <select
-                  id="card-sort"
-                  value={`${sortField}:${sortDirection}`}
-                  onChange={(e) => handleSortOptionChange(e.target.value)}
-                  className="block w-52 pr-8 pl-3 py-2 text-sm rounded-md border border-gray-300 bg-white shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  {sortOptions.map((option) => (
-                    <option 
-                      key={`${option.field}-${option.direction}`} 
-                      value={`${option.field}:${option.direction}`}
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-500">
-                  <ArrowUpDown size={16} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-10">
+                      No briefs found in this group.
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
-          </div>
-          
-          {/* Cards grid with animation */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-6">
-            {filteredBriefs.length > 0 ? (
-              filteredBriefs.map((brief) => (
-                <div 
-                  key={brief.id}
-                  className={`border-l-4 ${getMediaTypeColor(brief.channel)} rounded-lg overflow-hidden shadow hover:shadow-md transition-all duration-300 relative group bg-white hover:translate-y-[-2px]`}
-                >
-                  {/* Card Header */}
-                  <div className="p-5 border-b border-gray-100">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="font-medium text-blue-600 truncate max-w-[70%]" title={brief.title}>
-                        <Link to={`/briefs/${brief.id}`} className="hover:text-blue-800 text-base">
-                          {brief.title}
-                        </Link>
-                      </h3>
-                      <select
-                        className={`text-xs rounded cursor-pointer appearance-none pr-6 py-1 px-2 ${getStatusColor(brief.status)} focus:ring-2 focus:ring-blue-500 focus:outline-none`}
-                        value={brief.status}
-                        onChange={(e) => handleStatusChange(brief.id, e.target.value)}
-                        style={{ 
-                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                          backgroundPosition: 'right 0.2rem center',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundSize: '1em 1em'
-                        }}
-                      >
-                        <option value="draft">Draft</option>
-                        <option value="pending_approval">Pending Approval</option>
-                        <option value="approved">Approved</option>
-                        <option value="in_progress">In Progress</option>
-                        <option value="review">Review</option>
-                        <option value="complete">Complete</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                    </div>
-                    
-                    <div className="text-xs text-gray-500 flex items-center">
-                      <span className="flex items-center mr-2">
-                        {getChannelIcon(brief.channel)}
-                        <span className="ml-1">{brief.channel || 'No Channel'}</span>
-                      </span>
-                      •
-                      <span className="ml-2">{brief.brand?.name || 'Unknown Brand'}</span>
-                    </div>
-                  </div>
-                  
-                  {/* Card Content */}
-                  <div className="p-5 bg-gray-50">
-                    <div className="flex justify-between mb-4">
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Due Date</div>
-                        <div className="flex items-center">
-                          {getDeadlineIndicator(brief.due_date).icon}
-                          <span className={`text-sm ${getDeadlineIndicator(brief.due_date).color}`}>
-                            {formatDate(brief.due_date)}
-                          </span>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <div className="text-xs font-medium text-gray-500 mb-1">Resource</div>
-                        <div className="flex items-center text-sm">
-                          <span className="truncate max-w-[100px]">{brief.resource?.name || 'Unassigned'}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex justify-between items-center border-t border-gray-200 pt-3 mt-1">
-                      <div className="text-xs text-gray-500">
-                        <span>Created by {brief.created_by_user?.name || 'Unknown'}</span>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <Link 
-                          to={`/briefs/${brief.id}`}
-                          className="p-1.5 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
-                          title="View Brief"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <button
-                          onClick={() => handleDuplicate(brief)}
-                          className="p-1.5 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
-                          title="Duplicate Brief"
-                        >
-                          <Copy size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleArchive(brief.id)}
-                          className="p-1.5 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
-                          title="Archive Brief"
-                        >
-                          <Archive size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="col-span-full p-6 text-center text-gray-500">
-                No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
-                  <button 
-                    onClick={resetFilters}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Clear filters
-                  </button>
-                ) : (
-                  <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
-                    Create your first brief
-                  </Link>
-                )}
-              </div>
-            )}
-          </div>
+          ))}
         </div>
       ) : (
         // Calendar view
