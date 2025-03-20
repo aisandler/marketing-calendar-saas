@@ -56,6 +56,7 @@ const BriefsList = () => {
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [resourceFilter, setResourceFilter] = useState<string | null>(null);
   const [brandFilter, setBrandFilter] = useState<string | null>(null);
+  const [campaignFilter, setCampaignFilter] = useState<string | null>(null);
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
@@ -71,7 +72,7 @@ const BriefsList = () => {
   const [resourceUtilization, setResourceUtilization] = useState<Record<string, number>>({});
   
   // Add state for grouping
-  const [groupBy, setGroupBy] = useState<'none' | 'status' | 'campaign'>('none');
+  const [groupBy, setGroupBy] = useState<'none' | 'status' | 'campaign' | 'media_type'>('none');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
   // Add pagination state
@@ -278,10 +279,11 @@ const BriefsList = () => {
     if (statusFilter) count++;
     if (resourceFilter) count++;
     if (brandFilter) count++;
+    if (campaignFilter) count++;
     if (mediaTypeFilter) count++;
     // Don't count showCompleted as a filter since it's a view preference
     setFilterCount(count);
-  }, [searchQuery, statusFilter, resourceFilter, brandFilter, mediaTypeFilter]);
+  }, [searchQuery, statusFilter, resourceFilter, brandFilter, campaignFilter, mediaTypeFilter]);
 
   const getResourceName = (resourceId: string | null) => {
     if (!resourceId) return 'Unassigned';
@@ -343,6 +345,7 @@ const BriefsList = () => {
     setPriorityFilter(null);
     setResourceFilter(null);
     setBrandFilter(null);
+    setCampaignFilter(null);
     setMediaTypeFilter(null);
   };
   
@@ -424,6 +427,15 @@ const BriefsList = () => {
     // Apply brand filter (check if brand_id exists in the brief)
     if (brandFilter && brief.brand_id && brief.brand_id !== brandFilter) {
       return false;
+    }
+    
+    // Apply campaign filter
+    if (campaignFilter) {
+      if (campaignFilter === 'null') {
+        if (brief.campaign_id !== null) return false;
+      } else if (brief.campaign_id !== campaignFilter) {
+        return false;
+      }
     }
     
     // Apply media type filter (now using channel field)
@@ -786,6 +798,28 @@ const BriefsList = () => {
       if (groups['No Campaign'].length === 0) {
         delete groups['No Campaign'];
       }
+    } else if (groupBy === 'media_type') {
+      // Group briefs by media type (channel)
+      
+      // Get all unique channels
+      const uniqueChannels = Array.from(new Set(filteredBriefs.map(brief => brief.channel || 'Unknown')));
+      
+      // Sort channels alphabetically
+      uniqueChannels.sort();
+      
+      // Initialize groups
+      uniqueChannels.forEach(channel => {
+        groups[channel] = [];
+      });
+      
+      // Group briefs by channel
+      filteredBriefs.forEach(brief => {
+        const channel = brief.channel || 'Unknown';
+        if (!groups[channel]) {
+          groups[channel] = [];
+        }
+        groups[channel].push(brief);
+      });
     }
     
     return groups;
@@ -902,7 +936,7 @@ const BriefsList = () => {
   // Reset pagination when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, priorityFilter, resourceFilter, mediaTypeFilter, groupBy]);
+  }, [searchQuery, statusFilter, priorityFilter, resourceFilter, campaignFilter, mediaTypeFilter, groupBy]);
 
   if (loading) {
     return (
@@ -998,12 +1032,13 @@ const BriefsList = () => {
                 <span className="mr-1">Group by:</span>
                 <select
                   value={groupBy}
-                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'status' | 'campaign')}
+                  onChange={(e) => setGroupBy(e.target.value as 'none' | 'status' | 'campaign' | 'media_type')}
                   className="border-none bg-transparent focus:ring-0 text-sm p-0 -ml-1 cursor-pointer"
                 >
                   <option value="none">None</option>
                   <option value="status">Status</option>
                   <option value="campaign">Campaign</option>
+                  <option value="media_type">Media Type</option>
                 </select>
               </Button>
               
@@ -1145,6 +1180,27 @@ const BriefsList = () => {
                 </select>
               </div>
               
+              {/* Campaign filter */}
+              <div>
+                <label htmlFor="campaign-filter" className="block text-sm font-medium text-gray-700 mb-1">
+                  Campaign
+                </label>
+                <select
+                  id="campaign-filter"
+                  value={campaignFilter || ''}
+                  onChange={(e) => setCampaignFilter(e.target.value || null)}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                >
+                  <option value="">All Campaigns</option>
+                  <option value="null">No Campaign</option>
+                  {campaigns.map((campaign) => (
+                    <option key={campaign.id} value={campaign.id}>
+                      {campaign.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
               {/* Media Type filter */}
               <div>
                 <label htmlFor="media-type-filter" className="block text-sm font-medium text-gray-700 mb-1">
@@ -1194,6 +1250,11 @@ const BriefsList = () => {
                 {brandFilter && (
                   <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
                     Brand: {brands.find(b => b.id === brandFilter)?.name || brandFilter}
+                  </span>
+                )}
+                {campaignFilter && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    Campaign: {campaignFilter === 'null' ? 'No Campaign' : campaigns.find(c => c.id === campaignFilter)?.name || campaignFilter}
                   </span>
                 )}
                 {mediaTypeFilter && (
