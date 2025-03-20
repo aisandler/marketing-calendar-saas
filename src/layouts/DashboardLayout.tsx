@@ -15,7 +15,8 @@ import {
   ChevronDown,
   Folders,
   PieChart,
-  Settings
+  Settings,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 
@@ -23,6 +24,7 @@ const DashboardLayout: React.FC = () => {
   const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -47,6 +49,13 @@ const DashboardLayout: React.FC = () => {
     ) || isActivePath('/settings');
   };
 
+  // If a settings path is active, automatically expand the settings section
+  React.useEffect(() => {
+    if (isSettingsActive()) {
+      setSettingsOpen(true);
+    }
+  }, [location.pathname]);
+
   type NavigationItem = {
     name: string;
     href: string;
@@ -70,11 +79,6 @@ const DashboardLayout: React.FC = () => {
       ] 
     }
   ];
-
-  // Only show user management for admins
-  if (user.role === 'admin') {
-    navigation.push({ name: 'Users', href: '/users', icon: Users });
-  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -141,46 +145,54 @@ const DashboardLayout: React.FC = () => {
                         </Link>
                       ) : (
                         <>
-                          <div 
+                          <button 
                             className={`${
                               item.name === 'Settings' && isSettingsActive()
                                 ? 'text-blue-600 bg-blue-50'
                                 : 'text-gray-600'
-                            } px-2 py-2 text-base font-medium rounded-md flex items-center`}
+                            } px-2 py-2 text-base font-medium rounded-md flex items-center w-full justify-between`}
+                            onClick={() => setSettingsOpen(!settingsOpen)}
                           >
-                            <Icon className={`${
-                              item.name === 'Settings' && isSettingsActive()
-                                ? 'text-blue-600'
-                                : 'text-gray-400'
-                            } mr-4 flex-shrink-0 h-6 w-6`} />
-                            {item.name}
-                          </div>
-                          <ul className="pl-10 space-y-1 mt-1">
-                            {item.subItems.map((subItem) => {
-                              const SubIcon = subItem.icon;
-                              return (
-                                <li key={subItem.name}>
-                                  <Link
-                                    to={subItem.href}
-                                    className={`${
-                                      isActivePath(subItem.href)
-                                        ? 'bg-blue-50 text-blue-600'
-                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
-                                  >
-                                    <SubIcon
+                            <div className="flex items-center">
+                              <Icon className={`${
+                                item.name === 'Settings' && isSettingsActive()
+                                  ? 'text-blue-600'
+                                  : 'text-gray-400'
+                              } mr-4 flex-shrink-0 h-6 w-6`} />
+                              {item.name}
+                            </div>
+                            <ChevronRight 
+                              className={`h-5 w-5 transform transition-transform ${settingsOpen ? 'rotate-90' : ''}`}
+                            />
+                          </button>
+                          {settingsOpen && (
+                            <ul className="pl-10 space-y-1 mt-1">
+                              {item.subItems.map((subItem) => {
+                                const SubIcon = subItem.icon;
+                                return (
+                                  <li key={subItem.name}>
+                                    <Link
+                                      to={subItem.href}
                                       className={`${
                                         isActivePath(subItem.href)
-                                          ? 'text-blue-600'
-                                          : 'text-gray-400 group-hover:text-gray-500'
-                                      } mr-3 flex-shrink-0 h-5 w-5`}
-                                    />
-                                    {subItem.name}
-                                  </Link>
-                                </li>
-                              );
-                            })}
-                          </ul>
+                                          ? 'bg-blue-50 text-blue-600'
+                                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                      } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                                    >
+                                      <SubIcon
+                                        className={`${
+                                          isActivePath(subItem.href)
+                                            ? 'text-blue-600'
+                                            : 'text-gray-400 group-hover:text-gray-500'
+                                        } mr-3 flex-shrink-0 h-5 w-5`}
+                                      />
+                                      {subItem.name}
+                                    </Link>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
                         </>
                       )}
                     </li>
@@ -227,45 +239,53 @@ const DashboardLayout: React.FC = () => {
                       </Link>
                     ) : (
                       <>
-                        <div 
+                        <button 
                           className={`${
                             item.name === 'Settings' && isSettingsActive()
                               ? 'text-blue-600 bg-blue-50'
                               : 'text-gray-600'
-                          } px-2 py-2 text-sm font-medium rounded-md flex items-center`}
+                          } px-2 py-2 text-sm font-medium rounded-md flex items-center w-full justify-between`}
+                          onClick={() => setSettingsOpen(!settingsOpen)}
                         >
-                          <Icon className={`${
-                            item.name === 'Settings' && isSettingsActive()
-                              ? 'text-blue-600'
-                              : 'text-gray-400'
-                          } mr-3 flex-shrink-0 h-6 w-6`} />
-                          {item.name}
-                        </div>
-                        <div className="pl-9 space-y-1 mt-1">
-                          {item.subItems.map((subItem) => {
-                            const SubIcon = subItem.icon;
-                            return (
-                              <Link
-                                key={subItem.name}
-                                to={subItem.href}
-                                className={`${
-                                  isActivePath(subItem.href)
-                                    ? 'bg-blue-50 text-blue-600'
-                                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
-                              >
-                                <SubIcon
+                          <div className="flex items-center">
+                            <Icon className={`${
+                              item.name === 'Settings' && isSettingsActive() 
+                                ? 'text-blue-600' 
+                                : 'text-gray-400'
+                            } mr-3 flex-shrink-0 h-6 w-6`} />
+                            {item.name}
+                          </div>
+                          <ChevronRight 
+                            className={`h-5 w-5 transform transition-transform ${settingsOpen ? 'rotate-90' : ''}`}
+                          />
+                        </button>
+                        {settingsOpen && (
+                          <div className="pl-9 space-y-1 mt-1">
+                            {item.subItems.map((subItem) => {
+                              const SubIcon = subItem.icon;
+                              return (
+                                <Link
+                                  key={subItem.name}
+                                  to={subItem.href}
                                   className={`${
                                     isActivePath(subItem.href)
-                                      ? 'text-blue-600'
-                                      : 'text-gray-400 group-hover:text-gray-500'
-                                  } mr-3 flex-shrink-0 h-5 w-5`}
-                                />
-                                {subItem.name}
-                              </Link>
-                            );
-                          })}
-                        </div>
+                                      ? 'bg-blue-50 text-blue-600'
+                                      : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                  } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                                >
+                                  <SubIcon
+                                    className={`${
+                                      isActivePath(subItem.href)
+                                        ? 'text-blue-600'
+                                        : 'text-gray-400 group-hover:text-gray-500'
+                                    } mr-3 flex-shrink-0 h-5 w-5`}
+                                  />
+                                  {subItem.name}
+                                </Link>
+                              );
+                            })}
+                          </div>
+                        )}
                       </>
                     )}
                   </React.Fragment>
