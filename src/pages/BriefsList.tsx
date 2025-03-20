@@ -65,6 +65,8 @@ const BriefsList = () => {
   const [sortField, setSortField] = useState<string>('due_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  const [filterCount, setFilterCount] = useState(0);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -199,6 +201,17 @@ const BriefsList = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    // Update filter count
+    let count = 0;
+    if (searchQuery) count++;
+    if (statusFilter) count++;
+    if (resourceFilter) count++;
+    if (brandFilter) count++;
+    if (mediaTypeFilter) count++;
+    setFilterCount(count);
+  }, [searchQuery, statusFilter, resourceFilter, brandFilter, mediaTypeFilter]);
+
   const getResourceName = (resourceId: string | null) => {
     if (!resourceId) return 'Unassigned';
     const resource = resources.find(r => r.id === resourceId);
@@ -291,8 +304,8 @@ const BriefsList = () => {
     if (sortField !== field) return null;
     
     return sortDirection === 'asc' 
-      ? <ArrowUp className="h-4 w-4 inline ml-1" /> 
-      : <ArrowDown className="h-4 w-4 inline ml-1" />;
+      ? <ArrowUp className="h-4 w-4 inline ml-1 text-indigo-600" /> 
+      : <ArrowDown className="h-4 w-4 inline ml-1 text-indigo-600" />;
   };
 
   // Get column header class based on sort field
@@ -300,7 +313,7 @@ const BriefsList = () => {
     const baseClass = "px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition duration-150";
     
     if (sortField === field) {
-      return `${baseClass} text-indigo-600 bg-indigo-50 hover:bg-indigo-100`;
+      return `${baseClass} text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border-b-2 border-indigo-500`;
     }
     
     return `${baseClass} text-gray-500`;
@@ -382,6 +395,95 @@ const BriefsList = () => {
     return sortDirection === 'asc' ? comparison : -comparison;
   });
 
+  // Get background color for utilization bar
+  const getUtilizationBgColor = (percent: number) => {
+    if (percent < 50) return 'bg-emerald-500';
+    if (percent < 75) return 'bg-blue-500';
+    if (percent < 90) return 'bg-amber-500';
+    return 'bg-red-500';
+  };
+
+  // Get deadline proximity indicator
+  const getDeadlineIndicator = (dueDate: string) => {
+    const now = new Date();
+    const due = new Date(dueDate);
+    const daysUntilDue = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (daysUntilDue < 0) {
+      return {
+        indicator: "overdue",
+        color: "text-red-500",
+        icon: <span title="Overdue" className="inline-block w-2 h-2 rounded-full bg-red-500 animate-pulse mr-2"></span>
+      };
+    } else if (daysUntilDue <= 2) {
+      return {
+        indicator: "urgent",
+        color: "text-red-500",
+        icon: <span title="Due in ≤ 2 days" className="inline-block w-2 h-2 rounded-full bg-red-500 mr-2"></span>
+      };
+    } else if (daysUntilDue <= 7) {
+      return {
+        indicator: "soon",
+        color: "text-amber-500",
+        icon: <span title="Due in ≤ 7 days" className="inline-block w-2 h-2 rounded-full bg-amber-500 mr-2"></span>
+      };
+    } else if (daysUntilDue <= 14) {
+      return {
+        indicator: "approaching",
+        color: "text-blue-500",
+        icon: <span title="Due in ≤ 14 days" className="inline-block w-2 h-2 rounded-full bg-blue-500 mr-2"></span>
+      };
+    } else {
+      return {
+        indicator: "plenty-of-time",
+        color: "text-gray-500",
+        icon: null
+      };
+    }
+  };
+
+  // Get priority indicator based on status
+  const getPriorityIndicator = (brief: Brief) => {
+    // Use status to determine visual priority for now
+    const statusPriority: Record<string, string> = {
+      'draft': 'low',
+      'pending_approval': 'medium',
+      'approved': 'medium',
+      'in_progress': 'high',
+      'review': 'high',
+      'complete': 'low',
+      'cancelled': 'low'
+    };
+
+    // Get days until due
+    const now = new Date();
+    const due = new Date(brief.due_date);
+    const daysUntilDue = Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+    // Combine status and due date for priority
+    let priority = statusPriority[brief.status] || 'medium';
+    
+    // Increase priority if deadline is close
+    if (daysUntilDue < 0) {
+      priority = 'urgent';
+    } else if (daysUntilDue <= 2 && priority !== 'urgent') {
+      priority = 'high';
+    }
+
+    switch (priority) {
+      case 'urgent':
+        return <span title="Urgent Priority" className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></span>;
+      case 'high':
+        return <span title="High Priority" className="absolute left-0 top-0 bottom-0 w-1 bg-amber-500"></span>;
+      case 'medium':
+        return <span title="Medium Priority" className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500"></span>;
+      case 'low':
+        return <span title="Low Priority" className="absolute left-0 top-0 bottom-0 w-1 bg-gray-300"></span>;
+      default:
+        return null;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -439,20 +541,25 @@ const BriefsList = () => {
               <Input
                 type="text"
                 placeholder="Search briefs..."
-                className="pl-10"
+                className={`pl-10 ${searchQuery ? 'border-blue-500 ring-1 ring-blue-500' : ''}`}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
-            {/* Filter button */}
+            {/* Filter button with count badge */}
             <Button 
-              variant="outline"
+              variant={isFilterOpen ? "default" : "outline"}
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="px-3 py-2"
+              className="px-3 py-2 relative"
             >
               <SlidersHorizontal className="h-5 w-5" />
               <span className="ml-2">Filter</span>
+              {filterCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                  {filterCount}
+                </span>
+              )}
             </Button>
 
             {/* Export */}
@@ -575,6 +682,33 @@ const BriefsList = () => {
                 </Button>
               </div>
             </div>
+            
+            {/* Active filters tags */}
+            {filterCount > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-200 text-xs text-gray-500 flex items-center flex-wrap gap-2">
+                <span>Active filters:</span>
+                {statusFilter && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    Status: {statusFilter.replace('_', ' ')}
+                  </span>
+                )}
+                {resourceFilter && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    Resource: {resourceFilter === 'null' ? 'Unassigned' : resources.find(r => r.id === resourceFilter)?.name || resourceFilter}
+                  </span>
+                )}
+                {brandFilter && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    Brand: {brands.find(b => b.id === brandFilter)?.name || brandFilter}
+                  </span>
+                )}
+                {mediaTypeFilter && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full">
+                    Media: {mediaTypeFilter}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -674,30 +808,39 @@ const BriefsList = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredBriefs.length > 0 ? (
                   filteredBriefs.map((brief) => (
-                    <tr key={brief.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-900 max-w-md truncate inline-block">
+                    <tr 
+                      key={brief.id} 
+                      className="hover:bg-gray-50 transition-colors duration-150 relative group"
+                    >
+                      {getPriorityIndicator(brief)}
+                      <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50">
+                        <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-800 max-w-md truncate inline-block font-medium">
                           {brief.title}
                         </Link>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
                         {brief.channel}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(brief.due_date)}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm group-hover:bg-gray-50">
+                        <div className="flex items-center">
+                          {getDeadlineIndicator(brief.due_date).icon}
+                          <span className={getDeadlineIndicator(brief.due_date).color}>
+                            {formatDate(brief.due_date)}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50">
                         <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
                           {brief.status.replace('_', ' ')}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={brief.brand?.name || 'Unknown'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.brand?.name || 'Unknown'}>
                         {brief.brand?.name || 'Unknown'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={brief.resource?.name || 'Unassigned'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.resource?.name || 'Unassigned'}>
                         {brief.resource?.name || 'Unassigned'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={brief.created_by_user?.name || 'Unknown'}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate group-hover:bg-gray-50" title={brief.created_by_user?.name || 'Unknown'}>
                         {brief.created_by_user?.name || 'Unknown'}
                       </td>
                     </tr>
