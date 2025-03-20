@@ -1,0 +1,11 @@
+{
+  "name": "fix-history-tables",
+  "version": "1.0.0",
+  "description": "Fix for the history table mismatch issue in Supabase",
+  "type": "module",
+  "main": "fix_history_tables.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.0.0",
+    "dotenv": "^16.0.0"
+  }
+} 

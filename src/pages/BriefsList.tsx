@@ -812,8 +812,9 @@ const BriefsList = () => {
                       key={brief.id} 
                       className="hover:bg-gray-50 transition-colors duration-150 relative group"
                     >
-                      {getPriorityIndicator(brief)}
-                      <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50">
+                      {/* Priority indicator should not cause column misalignment */}
+                      <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50 relative">
+                        {getPriorityIndicator(brief)}
                         <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-800 max-w-md truncate inline-block font-medium">
                           {brief.title}
                         </Link>
