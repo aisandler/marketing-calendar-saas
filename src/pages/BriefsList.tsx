@@ -580,141 +580,149 @@ const BriefsList = () => {
       </div>
 
       {viewMode === 'list' ? (
-        // Briefs list
+        // Briefs list with horizontal scrolling wrapper
         <div className="bg-white shadow rounded-lg overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('title')}
-                  onClick={() => handleSort('title')}
-                  title="Click to sort by title"
-                >
-                  <div className="flex items-center">
-                    Title
-                    {getSortIndicator('title')}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('channel')}
-                  onClick={() => handleSort('channel')}
-                  title="Click to sort by media type"
-                >
-                  <div className="flex items-center">
-                    Media Type
-                    {getSortIndicator('channel')}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('due_date')}
-                  onClick={() => handleSort('due_date')}
-                  title="Click to sort by due date"
-                >
-                  <div className="flex items-center">
-                    Due Date
-                    {getSortIndicator('due_date')}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('status')}
-                  onClick={() => handleSort('status')}
-                  title="Click to sort by status"
-                >
-                  <div className="flex items-center">
-                    Status
-                    {getSortIndicator('status')}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('brand')}
-                  onClick={() => handleSort('brand')}
-                  title="Click to sort by brand"
-                >
-                  <div className="flex items-center">
-                    Brand
-                    {getSortIndicator('brand')}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('resource')}
-                  onClick={() => handleSort('resource')}
-                  title="Click to sort by resource"
-                >
-                  <div className="flex items-center">
-                    Resource
-                    {getSortIndicator('resource')}
-                  </div>
-                </th>
-                <th 
-                  scope="col" 
-                  className={getColumnHeaderClass('created_by')}
-                  onClick={() => handleSort('created_by')}
-                  title="Click to sort by creator"
-                >
-                  <div className="flex items-center">
-                    Created By
-                    {getSortIndicator('created_by')}
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredBriefs.length > 0 ? (
-                filteredBriefs.map((brief) => (
-                  <tr key={brief.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-900">
-                        {brief.title}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {brief.channel}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {formatDate(brief.due_date)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
-                        {brief.status.replace('_', ' ')}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {brief.brand?.name || 'Unknown'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {brief.resource?.name || 'Unassigned'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {brief.created_by_user?.name || 'Unknown'}
+          <div className="overflow-x-auto w-full">
+            <table className="min-w-full w-max divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('title')}
+                    onClick={() => handleSort('title')}
+                    title="Click to sort by title"
+                  >
+                    <div className="flex items-center">
+                      Title
+                      {getSortIndicator('title')}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('channel')}
+                    onClick={() => handleSort('channel')}
+                    title="Click to sort by media type"
+                    style={{ width: '120px' }}
+                  >
+                    <div className="flex items-center">
+                      Media Type
+                      {getSortIndicator('channel')}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('due_date')}
+                    onClick={() => handleSort('due_date')}
+                    title="Click to sort by due date"
+                    style={{ width: '120px' }}
+                  >
+                    <div className="flex items-center">
+                      Due Date
+                      {getSortIndicator('due_date')}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('status')}
+                    onClick={() => handleSort('status')}
+                    title="Click to sort by status"
+                    style={{ width: '120px' }}
+                  >
+                    <div className="flex items-center">
+                      Status
+                      {getSortIndicator('status')}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('brand')}
+                    onClick={() => handleSort('brand')}
+                    title="Click to sort by brand"
+                    style={{ width: '150px' }}
+                  >
+                    <div className="flex items-center">
+                      Brand
+                      {getSortIndicator('brand')}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('resource')}
+                    onClick={() => handleSort('resource')}
+                    title="Click to sort by resource"
+                    style={{ width: '150px' }}
+                  >
+                    <div className="flex items-center">
+                      Resource
+                      {getSortIndicator('resource')}
+                    </div>
+                  </th>
+                  <th 
+                    scope="col" 
+                    className={getColumnHeaderClass('created_by')}
+                    onClick={() => handleSort('created_by')}
+                    title="Click to sort by creator"
+                    style={{ width: '150px' }}
+                  >
+                    <div className="flex items-center">
+                      Created By
+                      {getSortIndicator('created_by')}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredBriefs.length > 0 ? (
+                  filteredBriefs.map((brief) => (
+                    <tr key={brief.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-900 max-w-md truncate inline-block">
+                          {brief.title}
+                        </Link>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {brief.channel}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(brief.due_date)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(brief.status)}`}>
+                          {brief.status.replace('_', ' ')}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={brief.brand?.name || 'Unknown'}>
+                        {brief.brand?.name || 'Unknown'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={brief.resource?.name || 'Unassigned'}>
+                        {brief.resource?.name || 'Unassigned'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-[150px] truncate" title={brief.created_by_user?.name || 'Unknown'}>
+                        {brief.created_by_user?.name || 'Unknown'}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
+                      No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
+                        <button 
+                          onClick={resetFilters}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          Clear filters
+                        </button>
+                      ) : (
+                        <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
+                          Create your first brief
+                        </Link>
+                      )}
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={7} className="px-6 py-4 text-center text-sm text-gray-500">
-                    No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
-                      <button 
-                        onClick={resetFilters}
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Clear filters
-                      </button>
-                    ) : (
-                      <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
-                        Create your first brief
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         // Calendar view
