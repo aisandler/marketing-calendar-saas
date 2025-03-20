@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -58,7 +58,7 @@ const BriefsList = () => {
   const [mediaTypeFilter, setMediaTypeFilter] = useState<string | null>(null);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [mediaTypes, setMediaTypes] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'calendar' | 'card'>('list');
   const [campaigns, setCampaigns] = useState<Array<any>>([]);
   
   // Add sorting state
@@ -681,24 +681,45 @@ const BriefsList = () => {
           <h2 className="text-xl font-semibold text-gray-900">Briefs</h2>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* View toggle - Positioned first */}
-            <Button
-              variant="outline"
-              onClick={() => setViewMode(viewMode === 'list' ? 'calendar' : 'list')}
-              className="px-3 py-2"
-            >
-              {viewMode === 'list' ? (
-                <>
-                  <Calendar className="h-5 w-5" />
-                  <span className="ml-2">Calendar</span>
-                </>
-              ) : (
-                <>
-                  <LayoutList className="h-5 w-5" />
-                  <span className="ml-2">List</span>
-                </>
-              )}
-            </Button>
+            {/* View toggle - Updated with card view option */}
+            <div className="flex rounded-md shadow-sm mr-2" role="group">
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`px-3 py-2 text-sm font-medium ${
+                  viewMode === 'list' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } border border-gray-300 rounded-l-md flex items-center`}
+              >
+                <TableIcon className="h-4 w-4 mr-1" />
+                Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('card')}
+                className={`px-3 py-2 text-sm font-medium ${
+                  viewMode === 'card' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } border-t border-b border-r border-gray-300 flex items-center`}
+              >
+                <Grid className="h-4 w-4 mr-1" />
+                Cards
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('calendar')}
+                className={`px-3 py-2 text-sm font-medium ${
+                  viewMode === 'calendar' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                } border-t border-b border-r border-gray-300 rounded-r-md flex items-center`}
+              >
+                <Calendar className="h-4 w-4 mr-1" />
+                Calendar
+              </button>
+            </div>
 
             {/* Search */}
             <div className="relative">
@@ -901,7 +922,7 @@ const BriefsList = () => {
       </div>
 
       {viewMode === 'list' ? (
-        // Briefs list with horizontal scrolling wrapper
+        // Table view
         <div className="bg-white shadow rounded-lg overflow-hidden">
           <div className="overflow-x-auto w-full">
             <table className="min-w-full w-max divide-y divide-gray-200">
@@ -1106,6 +1127,127 @@ const BriefsList = () => {
                 )}
               </tbody>
             </table>
+          </div>
+        </div>
+      ) : viewMode === 'card' ? (
+        // Card view
+        <div className="bg-white shadow rounded-lg p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredBriefs.length > 0 ? (
+              filteredBriefs.map((brief) => (
+                <div 
+                  key={brief.id} 
+                  className="border border-gray-200 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-150 relative group"
+                >
+                  {/* Priority indicator */}
+                  {getPriorityIndicator(brief)}
+                  
+                  {/* Card Header */}
+                  <div className="p-4 border-b border-gray-100">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-medium text-blue-600 truncate max-w-[70%]" title={brief.title}>
+                        <Link to={`/briefs/${brief.id}`} className="hover:text-blue-800">
+                          {brief.title}
+                        </Link>
+                      </h3>
+                      <select
+                        className={`text-xs rounded cursor-pointer appearance-none pr-6 py-1 px-2 ${getStatusColor(brief.status)} focus:ring-2 focus:ring-blue-500 focus:outline-none`}
+                        value={brief.status}
+                        onChange={(e) => handleStatusChange(brief.id, e.target.value)}
+                        style={{ 
+                          backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
+                          backgroundPosition: 'right 0.2rem center',
+                          backgroundRepeat: 'no-repeat',
+                          backgroundSize: '1em 1em'
+                        }}
+                      >
+                        <option value="draft">Draft</option>
+                        <option value="pending_approval">Pending Approval</option>
+                        <option value="approved">Approved</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="review">Review</option>
+                        <option value="complete">Complete</option>
+                        <option value="cancelled">Cancelled</option>
+                      </select>
+                    </div>
+                    
+                    <div className="text-xs text-gray-500 flex items-center">
+                      <span className="mr-2">{brief.channel || 'No Channel'}</span>
+                      •
+                      <span className="ml-2">{brief.brand?.name || 'Unknown Brand'}</span>
+                    </div>
+                  </div>
+                  
+                  {/* Card Content */}
+                  <div className="p-4">
+                    <div className="flex justify-between mb-3">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Due Date</div>
+                        <div className="flex items-center">
+                          {getDeadlineIndicator(brief.due_date).icon}
+                          <span className={`text-sm ${getDeadlineIndicator(brief.due_date).color}`}>
+                            {formatDate(brief.due_date)}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Resource</div>
+                        <div className="flex items-center text-sm">
+                          <span className="truncate max-w-[100px]">{brief.resource?.name || 'Unassigned'}</span>
+                          {brief.resource_id && getResourceUtilizationDisplay(brief.resource_id)}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <div className="text-xs text-gray-500">
+                        <span>Created by {brief.created_by_user?.name || 'Unknown'}</span>
+                      </div>
+                      
+                      <div className="flex space-x-1">
+                        <Link 
+                          to={`/briefs/${brief.id}`}
+                          className="p-1 bg-blue-50 text-blue-600 rounded hover:bg-blue-100 transition-colors"
+                          title="View Brief"
+                        >
+                          <Eye size={16} />
+                        </Link>
+                        <button
+                          onClick={() => handleDuplicate(brief)}
+                          className="p-1 bg-green-50 text-green-600 rounded hover:bg-green-100 transition-colors"
+                          title="Duplicate Brief"
+                        >
+                          <Copy size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleArchive(brief.id)}
+                          className="p-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors"
+                          title="Archive Brief"
+                        >
+                          <Archive size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full p-6 text-center text-gray-500">
+                No briefs found. {searchQuery || statusFilter || priorityFilter || resourceFilter || mediaTypeFilter ? (
+                  <button 
+                    onClick={resetFilters}
+                    className="text-blue-600 hover:text-blue-800"
+                  >
+                    Clear filters
+                  </button>
+                ) : (
+                  <Link to="/briefs/create" className="text-blue-600 hover:text-blue-800">
+                    Create your first brief
+                  </Link>
+                )}
+              </div>
+            )}
           </div>
         </div>
       ) : (
