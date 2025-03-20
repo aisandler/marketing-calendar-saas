@@ -73,6 +73,26 @@ const BriefsList = () => {
   const [groupBy, setGroupBy] = useState<'none' | 'status' | 'campaign'>('none');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({});
 
+  // Function to expand all groups
+  const expandAllGroups = () => {
+    const allGroups = Object.keys(groupedBriefs);
+    const expandedState: Record<string, boolean> = {};
+    allGroups.forEach(group => {
+      expandedState[group] = false; // false = expanded
+    });
+    setCollapsedGroups(expandedState);
+  };
+  
+  // Function to collapse all groups
+  const collapseAllGroups = () => {
+    const allGroups = Object.keys(groupedBriefs);
+    const collapsedState: Record<string, boolean> = {};
+    allGroups.forEach(group => {
+      collapsedState[group] = true; // true = collapsed
+    });
+    setCollapsedGroups(collapsedState);
+  };
+
   // Sort options dropdown for card view
   const sortOptions = [
     { label: 'Due Date (Ascending)', field: 'due_date', direction: 'asc' },
@@ -787,6 +807,13 @@ const BriefsList = () => {
     setCollapsedGroups(newCollapsedState);
   }, [groupBy, groupedBriefs]);
 
+  // Ensure briefs are sorted by due date ascending by default
+  useEffect(() => {
+    // Set initial sort order to due_date ascending
+    setSortField('due_date');
+    setSortDirection('asc');
+  }, []);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -860,7 +887,7 @@ const BriefsList = () => {
             </div>
 
             {/* Group by control */}
-            <div className="relative z-10">
+            <div className="relative z-10 flex gap-1">
               <Button 
                 variant="outline" 
                 className="px-3 py-2 flex items-center gap-1"
@@ -877,6 +904,27 @@ const BriefsList = () => {
                   <option value="campaign">Campaign</option>
                 </select>
               </Button>
+              
+              {groupBy !== 'none' && (
+                <>
+                  <Button 
+                    variant="outline"
+                    onClick={expandAllGroups}
+                    className="px-2 py-2"
+                    title="Expand All Groups"
+                  >
+                    <ChevronUp className="h-4 w-4" />
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={collapseAllGroups}
+                    className="px-2 py-2"
+                    title="Collapse All Groups"
+                  >
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
 
             {/* Search */}
