@@ -1353,10 +1353,10 @@ const BriefsList = () => {
                         groupBriefs.map((brief) => (
                           <tr 
                             key={brief.id} 
-                            className={`hover:bg-gray-50 transition-colors duration-150 relative group border-l-4 ${getMediaTypeColor(brief.channel)}`}
+                            className="hover:bg-gray-50 transition-colors duration-150 relative group"
                           >
-                            {/* Priority indicator should not cause column misalignment */}
-                            <td className="px-6 py-4 whitespace-nowrap group-hover:bg-gray-50 relative">
+                            {/* First cell with colored border for media type */}
+                            <td className={`px-6 py-4 whitespace-nowrap group-hover:bg-gray-50 relative border-l-4 ${getMediaTypeColor(brief.channel)}`}>
                               {getPriorityIndicator(brief)}
                               <Link to={`/briefs/${brief.id}`} className="text-blue-600 hover:text-blue-800 max-w-md truncate inline-block font-medium">
                                 {brief.title}
