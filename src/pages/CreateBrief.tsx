@@ -376,353 +376,381 @@ const CreateBrief = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="bg-white shadow rounded-lg p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">
-          {isEditMode ? 'Edit Brief' : 'Create New Brief'}
-        </h2>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="mb-6 flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">
+            {isEditMode ? 'Edit Brief' : 'Create New Brief'}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">
+            {isEditMode ? 'Update the brief details below' : 'Fill in the details to create a new brief'}
+          </p>
+        </div>
         
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
-            {error}
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => navigate(-1)}
+            className="flex items-center"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit(onSubmit)}
+            disabled={loading}
+            className="flex items-center"
+          >
+            {loading ? 'Saving...' : isEditMode ? 'Update Brief' : 'Create Brief'}
+          </Button>
+        </div>
+      </div>
+      
+      {error && (
+        <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg relative">
+          <div className="flex items-start">
+            <AlertTriangle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" />
+            <span>{error}</span>
           </div>
-        )}
-        
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-                  Title *
-                </label>
-                <Input
-                  id="title"
-                  {...register('title')}
-                  className={errors.title ? 'border-red-300' : ''}
-                />
-                {errors.title && (
-                  <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
-                )}
-              </div>
+        </div>
+      )}
+      
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Column - Main Content */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Basic Information Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Information</h3>
               
-              <div>
-                <label htmlFor="channel" className="block text-sm font-medium text-gray-700 mb-1">
-                  Channel *
-                </label>
-                <select
-                  id="channel"
-                  {...register('channel')}
-                  className={`block w-full rounded-md ${
-                    errors.channel ? 'border-red-300' : 'border-gray-300'
-                  } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm`}
-                >
-                  <option value="">Select Channel</option>
-                  <option value="Website">Website</option>
-                  <option value="Social Media">Social Media</option>
-                  <option value="Email">Email</option>
-                  <option value="Print">Print</option>
-                  <option value="Tradeshow">Tradeshow</option>
-                  <option value="Video">Video</option>
-                  <option value="Other">Other</option>
-                </select>
-                {errors.channel && (
-                  <p className="mt-1 text-sm text-red-600">{errors.channel.message}</p>
-                )}
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
+                    Title *
+                  </label>
+                  <Input
+                    id="title"
+                    {...register('title')}
+                    className={errors.title ? 'border-red-300' : ''}
+                    placeholder="Enter a descriptive title for this brief"
+                  />
+                  {errors.title && (
+                    <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    id="description"
+                    rows={4}
+                    {...register('description')}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    placeholder="Provide an overview of what needs to be created"
+                  />
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="brand_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Brand *
-                </label>
-                <select
-                  id="brand_id"
-                  {...register('brand_id')}
-                  className={`block w-full rounded-md ${
-                    errors.brand_id ? 'border-red-300' : 'border-gray-300'
-                  } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm`}
-                >
-                  <option value="">Select Brand</option>
-                  {brands.map((brand) => (
-                    <option key={brand.id} value={brand.id}>
-                      {brand.name}
-                    </option>
-                  ))}
-                </select>
-                {errors.brand_id && (
-                  <p className="mt-1 text-sm text-red-600">{errors.brand_id.message}</p>
-                )}
-              </div>
+            {/* Specifications Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Specifications</h3>
               
-              <div>
-                <label htmlFor="campaign_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Campaign
-                </label>
-                <select
-                  id="campaign_id"
-                  {...register('campaign_id')}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="">No Campaign</option>
-                  {campaigns
-                    .filter(campaign => !watch('brand_id') || campaign.brand_id === watch('brand_id'))
-                    .map((campaign) => (
-                      <option key={campaign.id} value={campaign.id}>
-                        {campaign.name}
-                      </option>
-                    ))}
-                </select>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Date *
-                </label>
-                <Input
-                  id="start_date"
-                  type="date"
-                  {...register('start_date')}
-                  className={errors.start_date ? 'border-red-300' : ''}
-                />
-                {errors.start_date && (
-                  <p className="mt-1 text-sm text-red-600">{errors.start_date.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 mb-1">
-                  Due Date *
-                </label>
-                <Input
-                  id="due_date"
-                  type="date"
-                  {...register('due_date')}
-                  className={errors.due_date ? 'border-red-300' : ''}
-                />
-                {errors.due_date && (
-                  <p className="mt-1 text-sm text-red-600">{errors.due_date.message}</p>
-                )}
-              </div>
-            </div>
-            
-            <div>
-              <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                Description
-              </label>
-              <textarea
-                id="description"
-                rows={4}
-                {...register('description')}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-              />
-            </div>
-            
-            {/* Specifications Editor */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Specifications
-              </label>
-              <div className="border border-gray-200 rounded-md p-4 bg-white">
+              <div className="bg-white rounded-md">
                 <SpecificationsEditor
                   initialSpecifications={specifications}
                   onChange={handleSpecificationsChange}
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-gray-500">
                 Add technical specifications such as dimensions, format, audience, etc.
               </p>
             </div>
+            
+            {/* Timeline and Project Details Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Timeline & Project Details</h3>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="start_date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Date *
+                    </label>
+                    <Input
+                      id="start_date"
+                      type="date"
+                      {...register('start_date')}
+                      className={errors.start_date ? 'border-red-300' : ''}
+                    />
+                    {errors.start_date && (
+                      <p className="mt-1 text-sm text-red-600">{errors.start_date.message}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="due_date" className="block text-sm font-medium text-gray-700 mb-1">
+                      Due Date *
+                    </label>
+                    <Input
+                      id="due_date"
+                      type="date"
+                      {...register('due_date')}
+                      className={errors.due_date ? 'border-red-300' : ''}
+                    />
+                    {errors.due_date && (
+                      <p className="mt-1 text-sm text-red-600">{errors.due_date.message}</p>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+                      Status
+                    </label>
+                    <select
+                      id="status"
+                      {...register('status')}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    >
+                      <option value="draft">Draft</option>
+                      <option value="pending_approval">Pending Approval</option>
+                      <option value="approved">Approved</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="review">Review</option>
+                      <option value="complete">Complete</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
+                      Priority
+                    </label>
+                    <select
+                      id="priority"
+                      {...register('priority')}
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                    >
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                      <option value="urgent">Urgent</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
           
-          {/* Resource and Approval */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Resource and Approval</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="resource_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Assigned Resource
-                </label>
-                <select
-                  id="resource_id"
-                  {...register('resource_id')}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="">Unassigned</option>
-                  {resources.map((resource) => (
-                    <option key={resource.id} value={resource.id}>
-                      {resource.name} ({resource.type})
-                    </option>
-                  ))}
-                </select>
+          {/* Right Column - Sidebar */}
+          <div className="space-y-6">
+            {/* Organization Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Organization</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="brand_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    Brand *
+                  </label>
+                  <select
+                    id="brand_id"
+                    {...register('brand_id')}
+                    className={`block w-full rounded-md ${
+                      errors.brand_id ? 'border-red-300' : 'border-gray-300'
+                    } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm`}
+                  >
+                    <option value="">Select Brand</option>
+                    {brands.map((brand) => (
+                      <option key={brand.id} value={brand.id}>
+                        {brand.name}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.brand_id && (
+                    <p className="mt-1 text-sm text-red-600">{errors.brand_id.message}</p>
+                  )}
+                </div>
                 
-                {resourceAllocation && (
-                  <div className="mt-2 bg-gray-50 p-2 rounded border border-gray-200 text-sm">
-                    <p>
-                      <span className="font-medium">Current Allocation:</span>{' '}
-                      <span className={resourceAllocation.percentAllocated > 90 ? 'text-red-600 font-bold' : 'text-gray-600'}>
-                        {resourceAllocation.percentAllocated}%
-                      </span>
-                    </p>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mt-1 mb-2">
-                      <div 
-                        className={`h-2.5 rounded-full ${
-                          resourceAllocation.percentAllocated > 100 ? 'bg-red-600' : 
-                          resourceAllocation.percentAllocated > 90 ? 'bg-amber-500' : 'bg-green-600'
-                        }`}
-                        style={{ width: `${Math.min(resourceAllocation.percentAllocated, 100)}%` }}
-                      ></div>
+                <div>
+                  <label htmlFor="campaign_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    Campaign
+                  </label>
+                  <select
+                    id="campaign_id"
+                    {...register('campaign_id')}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">No Campaign</option>
+                    {campaigns
+                      .filter(campaign => !watch('brand_id') || campaign.brand_id === watch('brand_id'))
+                      .map((campaign) => (
+                        <option key={campaign.id} value={campaign.id}>
+                          {campaign.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+                
+                <div>
+                  <label htmlFor="channel" className="block text-sm font-medium text-gray-700 mb-1">
+                    Channel *
+                  </label>
+                  <select
+                    id="channel"
+                    {...register('channel')}
+                    className={`block w-full rounded-md ${
+                      errors.channel ? 'border-red-300' : 'border-gray-300'
+                    } shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm`}
+                  >
+                    <option value="">Select Channel</option>
+                    <option value="Website">Website</option>
+                    <option value="Instagram">Instagram</option>
+                    <option value="Facebook">Facebook</option>
+                    <option value="Twitter">Twitter</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Email">Email</option>
+                    <option value="Print">Print</option>
+                    <option value="Tradeshow">Tradeshow</option>
+                    <option value="Video">Video</option>
+                    <option value="Event">Event</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  {errors.channel && (
+                    <p className="mt-1 text-sm text-red-600">{errors.channel.message}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* People Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">People</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="resource_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    Assigned Resource
+                  </label>
+                  <select
+                    id="resource_id"
+                    {...register('resource_id')}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">Unassigned</option>
+                    {resources.map((resource) => (
+                      <option key={resource.id} value={resource.id}>
+                        {resource.name} ({resource.type})
+                      </option>
+                    ))}
+                  </select>
+                  
+                  {resourceAllocation && (
+                    <div className="mt-2 bg-blue-50 p-3 rounded-md border border-blue-100 text-sm">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-700">Current Allocation:</span>
+                        <span className={resourceAllocation.percentAllocated > 90 ? 'text-red-600 font-medium' : 'text-gray-700'}>
+                          {resourceAllocation.percentAllocated}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                        <div 
+                          className={`h-2 rounded-full ${
+                            resourceAllocation.percentAllocated > 100 ? 'bg-red-600' : 
+                            resourceAllocation.percentAllocated > 90 ? 'bg-amber-500' : 'bg-green-600'
+                          }`}
+                          style={{ width: `${Math.min(resourceAllocation.percentAllocated, 100)}%` }}
+                        ></div>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {resourceAllocation.totalAllocated} of {resourceAllocation.capacity} hours allocated
+                      </p>
                     </div>
-                    <p className="text-xs text-gray-500">
-                      {resourceAllocation.totalAllocated} of {resourceAllocation.capacity} hours allocated
-                    </p>
-                  </div>
-                )}
+                  )}
+                  
+                  {resourceConflict && (
+                    <div className="mt-2 flex items-start gap-2 bg-red-50 p-2 rounded-md border border-red-100 text-red-600 text-sm">
+                      <AlertTriangle className="h-5 w-5 flex-shrink-0" />
+                      <span>
+                        Resource is overallocated during this time period.
+                        Consider assigning to another resource or adjusting the timeline.
+                      </span>
+                    </div>
+                  )}
+                </div>
                 
-                {resourceConflict && (
-                  <div className="mt-2 flex items-start gap-2 text-red-600 text-sm">
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    <span>
-                      <strong>Warning:</strong> This resource is overallocated during this time period.
-                      Consider assigning to another resource or adjusting the timeline.
-                    </span>
-                  </div>
-                )}
-                
-                {tradeshowConflict && (
-                  <div className="mt-2 flex items-start gap-2 text-amber-600 text-sm">
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0" />
-                    <span>There are tradeshows during this time period that may require resources.</span>
-                  </div>
-                )}
-              </div>
-              
-              <div>
-                <label htmlFor="approver_id" className="block text-sm font-medium text-gray-700 mb-1">
-                  Approver
-                </label>
-                <select
-                  id="approver_id"
-                  {...register('approver_id')}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="">Select Approver</option>
-                  {approvers.map((approver) => (
-                    <option key={approver.id} value={approver.id}>
-                      {approver.name} ({approver.role})
-                    </option>
-                  ))}
-                </select>
+                <div>
+                  <label htmlFor="approver_id" className="block text-sm font-medium text-gray-700 mb-1">
+                    Approver
+                  </label>
+                  <select
+                    id="approver_id"
+                    {...register('approver_id')}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">Select Approver</option>
+                    {approvers.map((approver) => (
+                      <option key={approver.id} value={approver.id}>
+                        {approver.name} ({approver.role})
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="estimated_hours" className="block text-sm font-medium text-gray-700 mb-1">
-                  Estimated Hours
-                </label>
-                <Controller
-                  name="estimated_hours"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="estimated_hours"
-                      type="number"
-                      min="0"
-                      step="0.5"
-                      onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                      value={field.value !== null ? field.value : ''}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                    />
-                  )}
-                />
-              </div>
+            {/* Cost Card */}
+            <div className="bg-white shadow rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Cost Estimation</h3>
               
-              <div>
-                <label htmlFor="expenses" className="block text-sm font-medium text-gray-700 mb-1">
-                  Expenses ($)
-                </label>
-                <Controller
-                  name="expenses"
-                  control={control}
-                  render={({ field }) => (
-                    <Input
-                      id="expenses"
-                      type="number"
-                      min="0"
-                      step="1"
-                      onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
-                      value={field.value !== null ? field.value : ''}
-                    />
-                  )}
-                />
-                {/* Cost estimation section */}
-                {calculatedCost !== null && (
-                  <div className="mt-2 bg-gray-50 p-2 rounded border border-gray-200 text-sm">
-                    <p className="font-medium text-gray-700">
-                      Estimated Resource Cost: ${calculatedCost.toFixed(2)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Based on resource hourly rate and estimated hours
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Priority, Status, and Cost Summary */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium text-gray-900">Priority, Status, and Cost</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-1">
-                  Priority
-                </label>
-                <select
-                  id="priority"
-                  {...register('priority')}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="urgent">Urgent</option>
-                </select>
-              </div>
-              
-              <div>
-                <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  id="status"
-                  {...register('status')}
-                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="pending_approval">Pending Approval</option>
-                  <option value="approved">Approved</option>
-                  <option value="in_progress">In Progress</option>
-                  <option value="review">Review</option>
-                  <option value="complete">Complete</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Cost Summary
-                </label>
-                <div className="bg-blue-50 border border-blue-200 rounded p-3 h-full">
-                  <div className="space-y-1">
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="estimated_hours" className="block text-sm font-medium text-gray-700 mb-1">
+                    Estimated Hours
+                  </label>
+                  <Controller
+                    name="estimated_hours"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="estimated_hours"
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                        value={field.value !== null ? field.value : ''}
+                      />
+                    )}
+                  />
+                </div>
+                
+                <div>
+                  <label htmlFor="expenses" className="block text-sm font-medium text-gray-700 mb-1">
+                    Additional Expenses ($)
+                  </label>
+                  <Controller
+                    name="expenses"
+                    control={control}
+                    render={({ field }) => (
+                      <Input
+                        id="expenses"
+                        type="number"
+                        min="0"
+                        step="1"
+                        onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : null)}
+                        value={field.value !== null ? field.value : ''}
+                      />
+                    )}
+                  />
+                </div>
+                
+                <div className="bg-blue-50 rounded-md p-4 border border-blue-100">
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Cost Summary</h4>
+                  <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Resource Cost:</span>
                       <span>${calculatedCost !== null ? calculatedCost.toFixed(2) : '0.00'}</span>
@@ -734,7 +762,7 @@ const CreateBrief = () => {
                     </div>
                     
                     <div className="border-t border-blue-200 my-1 pt-1 flex justify-between font-medium">
-                      <span>Total Estimated Cost:</span>
+                      <span>Total:</span>
                       <span>
                         ${(
                           (calculatedCost || 0) +
@@ -747,27 +775,25 @@ const CreateBrief = () => {
               </div>
             </div>
           </div>
-          
-          {/* Submit button */}
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2"
-            >
-              {loading ? (
-                <span className="flex items-center">
-                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </span>
-              ) : isEditMode ? 'Update Brief' : 'Create Brief'}
-            </Button>
-          </div>
-        </form>
-      </div>
+        </div>
+        
+        <div className="flex justify-end gap-3 pt-4">
+          <Button
+            variant="outline"
+            onClick={() => navigate(-1)}
+            className="flex items-center"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="flex items-center"
+          >
+            {loading ? 'Saving...' : isEditMode ? 'Update Brief' : 'Create Brief'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };
