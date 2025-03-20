@@ -24,8 +24,14 @@ const AuthLayout: React.FC = () => {
         <div className="mx-auto w-full max-w-sm lg:w-96">
           <div>
             <div className="flex items-center">
-              <Briefcase className="h-10 w-10 text-blue-600" />
-              <h2 className="ml-3 text-3xl font-extrabold text-gray-900">Marketing Calendar</h2>
+              <div className="flex-shrink-0">
+                <img
+                  className="h-12 w-auto"
+                  src="/logo.svg"
+                  alt="BriefChief Logo"
+                />
+              </div>
+              <h2 className="ml-3 text-3xl font-extrabold text-gray-900">BriefChief</h2>
             </div>
             <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
               Welcome back

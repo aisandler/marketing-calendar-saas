@@ -1,28 +1,40 @@
-# Marketing Calendar SaaS
+# BriefChief
 
-A comprehensive marketing resource management platform that helps teams manage their marketing briefs and campaigns effectively.
+A modern resource planning and brief management platform for marketing teams. BriefChief helps you organize marketing briefs, allocate resources efficiently, and track project progress.
 
 ## Features
 
-- **Campaign Management**: Organize and track marketing campaigns
-- **Brief Management**: Create and manage marketing briefs with detailed specifications
-- **Resource Management**: 
-  - Team-based organization and reporting
-  - Media type utilization tracking
-  - Capacity planning and forecasting
-  - Resource allocation visualization
-  - Cost tracking and reporting
-- **Brand Management**: Organize content by brand
-- **Collaboration**: Team-based workflow with roles and permissions
-- **Analytics**: Comprehensive reporting on progress, costs, and resource utilization
+- Marketing brief creation and management
+- Resource allocation and capacity planning
+- Campaign organization
+- Team collaboration
+- Project status tracking
+- Visual resource utilization dashboard
 
 ## Tech Stack
 
-- **Frontend**: React with TypeScript
-- **Styling**: Tailwind CSS
-- **Backend**: Supabase
-- **Authentication**: Supabase Auth
-- **Database**: PostgreSQL (via Supabase)
+- React
+- TypeScript
+- Tailwind CSS
+- Supabase for authentication and database
+- Vite for building and development
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+```
+
+## License
+
+MIT
 
 ## Project Structure
 

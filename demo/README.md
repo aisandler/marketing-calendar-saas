@@ -1,6 +1,22 @@
 # Demo Data Generation
 
-This directory contains scripts to generate a rich set of demo data for the Marketing Calendar application. The generated data simulates historical usage of the system with realistic patterns.
+This directory contains scripts to generate a rich set of demo data for the BriefChief application. The generated data simulates historical usage of the system with realistic patterns.
+
+## Features
+
+- Generates users, brands, campaigns, briefs, and resources with realistic relationships
+- Creates historical trends for resource utilization
+- Builds a coherent timeline of marketing activities
+
+## Usage
+
+1. Ensure your Supabase instance is set up with the correct schema
+2. Update the `.env` file with your Supabase credentials
+3. Run the generation script:
+
+```bash
+npm run generate
+```
 
 ## Purpose
 

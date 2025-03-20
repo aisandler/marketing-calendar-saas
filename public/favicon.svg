@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simplified version for favicon -->
+  
+  <!-- Crown -->
+  <path d="M16 2L19 7H13L16 2Z" fill="#FFC107" stroke="#FFC107" stroke-width="1.5" stroke-linejoin="round"/>
+  
+  <!-- Briefcase -->
+  <rect x="6" y="9" width="20" height="17" rx="2" fill="#4F46E5" stroke="#4F46E5" stroke-width="1.5"/>
+  <path d="M12 9V7C12 6.44772 12.4477 6 13 6H19C19.5523 6 20 6.44772 20 7V9" stroke="#4F46E5" stroke-width="1.5"/>
+  
+  <!-- Letters BC -->
+  <text x="11" y="21" font-family="Arial, sans-serif" font-weight="bold" font-size="8" fill="white">BC</text>
+</svg> 
