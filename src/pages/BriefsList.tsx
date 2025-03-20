@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { formatDate, getPriorityColor, getStatusColor, calculateResourceAllocation } from '../lib/utils';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon } from 'lucide-react';
+import { Download, Filter, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, Calendar, LayoutList, ArrowDown, ArrowUp, Eye, Copy, Archive, MoreHorizontal, Grid, TableIcon, Globe, Film, Mail, MessageSquare, Image, FileText, PenTool, Youtube, Instagram, Facebook, Linkedin, Twitter } from 'lucide-react';
 import type { Resource, User } from '../types';
 import MarketingCalendar from '../components/MarketingCalendar';
 
@@ -649,6 +649,42 @@ const BriefsList = () => {
     );
   };
 
+  // Get channel icon based on the brief's channel field
+  const getChannelIcon = (channel: string | null) => {
+    if (!channel) return <FileText size={16} className="text-gray-400" />;
+    
+    const channelLower = channel.toLowerCase();
+    
+    if (channelLower.includes('website') || channelLower.includes('web')) {
+      return <Globe size={16} className="text-blue-500" />;
+    } else if (channelLower.includes('video')) {
+      return <Film size={16} className="text-purple-500" />;
+    } else if (channelLower.includes('email')) {
+      return <Mail size={16} className="text-amber-500" />;
+    } else if (channelLower.includes('social') && channelLower.includes('media')) {
+      return <MessageSquare size={16} className="text-green-500" />;
+    } else if (channelLower.includes('print')) {
+      return <FileText size={16} className="text-indigo-500" />;
+    } else if (channelLower.includes('design')) {
+      return <PenTool size={16} className="text-pink-500" />;
+    } else if (channelLower.includes('image') || channelLower.includes('photo')) {
+      return <Image size={16} className="text-emerald-500" />;
+    } else if (channelLower.includes('youtube')) {
+      return <Youtube size={16} className="text-red-500" />;
+    } else if (channelLower.includes('instagram')) {
+      return <Instagram size={16} className="text-pink-500" />;
+    } else if (channelLower.includes('facebook')) {
+      return <Facebook size={16} className="text-blue-600" />;
+    } else if (channelLower.includes('linkedin')) {
+      return <Linkedin size={16} className="text-blue-700" />;
+    } else if (channelLower.includes('twitter')) {
+      return <Twitter size={16} className="text-blue-400" />;
+    }
+    
+    // Default icon
+    return <FileText size={16} className="text-gray-500" />;
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -1035,7 +1071,10 @@ const BriefsList = () => {
                         </Link>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 group-hover:bg-gray-50">
-                        {brief.channel}
+                        <div className="flex items-center">
+                          {getChannelIcon(brief.channel)}
+                          <span className="ml-2">{brief.channel}</span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm group-hover:bg-gray-50">
                         <div className="flex items-center">
@@ -1172,7 +1211,10 @@ const BriefsList = () => {
                     </div>
                     
                     <div className="text-xs text-gray-500 flex items-center">
-                      <span className="mr-2">{brief.channel || 'No Channel'}</span>
+                      <span className="flex items-center mr-2">
+                        {getChannelIcon(brief.channel)}
+                        <span className="ml-1">{brief.channel || 'No Channel'}</span>
+                      </span>
                       •
                       <span className="ml-2">{brief.brand?.name || 'Unknown Brand'}</span>
                     </div>
