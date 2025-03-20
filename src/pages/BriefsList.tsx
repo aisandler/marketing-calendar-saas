@@ -869,55 +869,55 @@ const BriefsList = () => {
       return { 'All Briefs': allBriefs.slice(startIndex, Math.min(endIndex, allBriefs.length)) };
     }
     
-    // When grouping, we need to preserve group structure but paginate the overall view
-    const allGroups = Object.keys(data);
-    let totalBriefs = 0;
-    allGroups.forEach(group => {
-      totalBriefs += data[group].length;
+    // For grouped views, we need to account for collapsed groups
+    const result: Record<string, Brief[]> = {};
+    
+    // First, create an array of all visible briefs from non-collapsed groups
+    let visibleBriefs: Array<{groupName: string; brief: Brief}> = [];
+    
+    Object.entries(data).forEach(([groupName, groupBriefs]) => {
+      // Add all groups to the result, regardless of collapsed state
+      result[groupName] = [];
+      
+      // Only add briefs from non-collapsed groups to our visible briefs array
+      if (!collapsedGroups[groupName]) {
+        groupBriefs.forEach(brief => {
+          visibleBriefs.push({groupName, brief});
+        });
+      }
     });
     
-    // Calculate which briefs should be shown on current page
+    // Paginate the visible briefs
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
+    const paginatedVisibleBriefs = visibleBriefs.slice(startIndex, Math.min(endIndex, visibleBriefs.length));
     
-    // Keep track of how many briefs we've processed
-    let briefsProcessed = 0;
+    // Reorganize the paginated briefs back into their respective groups
+    paginatedVisibleBriefs.forEach(({groupName, brief}) => {
+      result[groupName].push(brief);
+    });
     
-    // Create a new data structure with only the briefs for current page
-    const paginatedData: Record<string, Brief[]> = {};
-    
-    for (const group of allGroups) {
-      const groupBriefs = data[group];
-      
-      // If we haven't reached the start index yet
-      if (briefsProcessed + groupBriefs.length <= startIndex) {
-        briefsProcessed += groupBriefs.length;
-        continue; // Skip this group entirely
+    // Remove empty groups
+    Object.keys(result).forEach(groupName => {
+      if (result[groupName].length === 0 && !collapsedGroups[groupName]) {
+        delete result[groupName];
       }
-      
-      // If we've gone past the end index
-      if (briefsProcessed >= endIndex) {
-        break; // We're done
-      }
-      
-      // Calculate which part of this group to include
-      const groupStartIndex = Math.max(0, startIndex - briefsProcessed);
-      const groupEndIndex = Math.min(groupBriefs.length, endIndex - briefsProcessed);
-      
-      // Add this slice to our result
-      paginatedData[group] = groupBriefs.slice(groupStartIndex, groupEndIndex);
-      
-      // Update our counter
-      briefsProcessed += groupBriefs.length;
-    }
+    });
     
-    return paginatedData;
+    return result;
   };
   
   // Calculate total pages
   const totalItems = useMemo(() => {
-    return Object.values(groupedBriefs).reduce((sum, briefs) => sum + briefs.length, 0);
-  }, [groupedBriefs]);
+    if (groupBy === 'none') {
+      return Object.values(groupedBriefs).reduce((sum, briefs) => sum + briefs.length, 0);
+    } else {
+      // Only count briefs in non-collapsed groups
+      return Object.entries(groupedBriefs).reduce((sum, [groupName, briefs]) => {
+        return sum + (collapsedGroups[groupName] ? 0 : briefs.length);
+      }, 0);
+    }
+  }, [groupedBriefs, groupBy, collapsedGroups]);
   
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   
@@ -933,10 +933,10 @@ const BriefsList = () => {
     setCurrentPage(page);
   };
   
-  // Reset pagination when filters change
+  // Reset pagination when filters change or when a group is collapsed/expanded
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter, priorityFilter, resourceFilter, campaignFilter, mediaTypeFilter, groupBy]);
+  }, [searchQuery, statusFilter, priorityFilter, resourceFilter, campaignFilter, mediaTypeFilter, groupBy, collapsedGroups]);
 
   if (loading) {
     return (
