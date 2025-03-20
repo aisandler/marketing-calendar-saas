@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import { Input } from '../ui/Input';
 import { Button } from '../ui/Button';
-import { Search, X } from 'lucide-react';
+import { Search, X, Calendar, Filter, RefreshCw } from 'lucide-react';
 
 interface Brand {
   id: string;
@@ -36,15 +36,23 @@ const CampaignFilters: React.FC<CampaignFiltersProps> = ({ onFilterChange }) => 
       end: searchParams.get('dateEnd') || '',
     },
   });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchBrands = async () => {
-      const { data } = await supabase
-        .from('brands')
-        .select('id, name')
-        .order('name');
-      
-      setBrands(data || []);
+      setLoading(true);
+      try {
+        const { data } = await supabase
+          .from('brands')
+          .select('id, name')
+          .order('name');
+        
+        setBrands(data || []);
+      } catch (error) {
+        console.error('Error fetching brands:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchBrands();
@@ -84,22 +92,23 @@ const CampaignFilters: React.FC<CampaignFiltersProps> = ({ onFilterChange }) => 
     onFilterChange(emptyFilters);
   };
 
+  const hasFilters = filters.search || filters.status || filters.brand || filters.dateRange.start || filters.dateRange.end;
+
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {/* Search */}
-        <div>
-          <label htmlFor="search" className="block text-sm font-medium text-gray-700">
-            Search
-          </label>
-          <div className="mt-1 relative">
+        <div className="md:col-span-2">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-400" />
+            </div>
             <Input
               type="text"
-              id="search"
               value={filters.search}
               onChange={(e) => handleFilterChange('search', e.target.value)}
-              placeholder="Search campaigns..."
-              className="pr-10"
+              placeholder="Search campaigns by name or description..."
+              className="pl-10"
             />
             {filters.search && (
               <button
@@ -115,14 +124,11 @@ const CampaignFilters: React.FC<CampaignFiltersProps> = ({ onFilterChange }) => 
 
         {/* Status */}
         <div>
-          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
-            Status
-          </label>
           <select
-            id="status"
             value={filters.status}
             onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            aria-label="Filter by status"
           >
             <option value="">All Statuses</option>
             <option value="draft">Draft</option>
@@ -134,14 +140,12 @@ const CampaignFilters: React.FC<CampaignFiltersProps> = ({ onFilterChange }) => 
 
         {/* Brand */}
         <div>
-          <label htmlFor="brand" className="block text-sm font-medium text-gray-700">
-            Brand
-          </label>
           <select
-            id="brand"
             value={filters.brand}
             onChange={(e) => handleFilterChange('brand', e.target.value)}
-            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+            aria-label="Filter by brand"
+            disabled={loading}
           >
             <option value="">All Brands</option>
             {brands.map((brand) => (
@@ -151,52 +155,60 @@ const CampaignFilters: React.FC<CampaignFiltersProps> = ({ onFilterChange }) => 
             ))}
           </select>
         </div>
-
-        {/* Date Range */}
-        <div>
-          <label htmlFor="dateStart" className="block text-sm font-medium text-gray-700">
-            Start Date
-          </label>
-          <Input
-            type="date"
-            id="dateStart"
-            value={filters.dateRange.start}
-            onChange={(e) =>
-              handleFilterChange('dateRange', {
-                ...filters.dateRange,
-                start: e.target.value,
-              })
-            }
-            className="mt-1"
-          />
-        </div>
-        <div>
-          <label htmlFor="dateEnd" className="block text-sm font-medium text-gray-700">
-            End Date
-          </label>
-          <Input
-            type="date"
-            id="dateEnd"
-            value={filters.dateRange.end}
-            onChange={(e) =>
-              handleFilterChange('dateRange', {
-                ...filters.dateRange,
-                end: e.target.value,
-              })
-            }
-            className="mt-1"
-          />
-        </div>
       </div>
 
-      {/* Reset Filters */}
-      {(filters.search || filters.status || filters.brand || filters.dateRange.start || filters.dateRange.end) && (
-        <div className="flex justify-end">
-          <Button variant="outline" onClick={resetFilters}>
-            Reset Filters
-          </Button>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        {/* Date Range */}
+        <div>
+          <div className="flex items-center gap-2 mb-1 text-sm text-gray-700">
+            <Calendar className="h-4 w-4" />
+            <span>Date Range</span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Input
+                type="date"
+                value={filters.dateRange.start}
+                onChange={(e) =>
+                  handleFilterChange('dateRange', {
+                    ...filters.dateRange,
+                    start: e.target.value,
+                  })
+                }
+                placeholder="Start date"
+                aria-label="Start date"
+              />
+            </div>
+            <div>
+              <Input
+                type="date"
+                value={filters.dateRange.end}
+                onChange={(e) =>
+                  handleFilterChange('dateRange', {
+                    ...filters.dateRange,
+                    end: e.target.value,
+                  })
+                }
+                placeholder="End date"
+                aria-label="End date"
+              />
+            </div>
+          </div>
         </div>
-      )}
+
+        <div className="md:col-span-3 flex justify-end items-end">
+          {hasFilters && (
+            <Button 
+              variant="outline" 
+              onClick={resetFilters}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Clear Filters
+            </Button>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
