@@ -7,10 +7,14 @@ import { Calendar as CalendarIcon, Users, FileText, Briefcase, AlertCircle, Cloc
 import { startOfWeek, endOfWeek, format } from 'date-fns';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
 import interactionPlugin from '@fullcalendar/interaction';
-import { Brief, Resource } from '../types';
+import { Brief, Resource, BriefStatus } from '../types';
 import { DashboardCharts } from '../components/DashboardCharts';
 import { TabGroup, TabList, Tab, TabPanels, TabPanel } from '@tremor/react';
+import tippy from 'tippy.js';
+import 'tippy.js/dist/tippy.css';
 
 interface Campaign {
   id: string;
@@ -170,6 +174,189 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
+  useEffect(() => {
+    document.title = "Dashboard | Marketing Calendar";
+  }, []);
+
+  // Calendar event handling
+  const handleEventClick = (info: any) => {
+    const eventType = info.event.extendedProps.type;
+    const eventId = info.event.id.replace(/^(brief|campaign)-/, '');
+    
+    // Log event click
+    console.log(`${eventType} clicked:`, info.event);
+    
+    // Navigate to the appropriate detail page
+    if (eventType === 'brief') {
+      window.location.href = `/briefs/${eventId}`;
+    } else if (eventType === 'campaign') {
+      window.location.href = `/campaigns/${eventId}`;
+    }
+    
+    // Prevent default link behavior
+    info.jsEvent.preventDefault();
+  };
+
+  // Calendar header toolbar customization
+  const renderCalendarHeader = (headerInfo: any) => {
+    return {
+      start: "prev,next today",
+      center: "title",
+      end: "dayGridMonth,timeGridWeek,listWeek"
+    };
+  };
+
+  // Format calendar events from briefs
+  const formatCalendarEvents = (briefs: Brief[], resources: Resource[]) => {
+    return briefs.map(brief => {
+      // Determine color based on status
+      let backgroundColor;
+      let borderColor;
+
+      switch (brief.status) {
+        case 'complete':
+          backgroundColor = '#10B981'; // Emerald-500
+          borderColor = '#059669'; // Emerald-600
+          break;
+        case 'in_progress':
+          backgroundColor = '#6366F1'; // Indigo-500
+          borderColor = '#4F46E5'; // Indigo-600
+          break;
+        case 'pending_approval':
+          backgroundColor = '#F59E0B'; // Amber-500
+          borderColor = '#D97706'; // Amber-600
+          break;
+        case 'cancelled':
+          backgroundColor = '#6B7280'; // Gray-500
+          borderColor = '#4B5563'; // Gray-600
+          break;
+        case 'review': // Fixed from 'blocked' to a valid BriefStatus
+          backgroundColor = '#EF4444'; // Red-500
+          borderColor = '#DC2626'; // Red-600
+          break;
+        default:
+          backgroundColor = '#8B5CF6'; // Violet-500
+          borderColor = '#7C3AED'; // Violet-600
+      }
+
+      return {
+        id: brief.id.toString(),
+        title: brief.title,
+        start: brief.due_date,
+        end: brief.due_date,
+        backgroundColor,
+        borderColor,
+        textColor: '#FFF',
+        extendedProps: {
+          status: brief.status,
+          channel: brief.channel,
+          description: brief.description,
+          resource: resources.find(r => r.id === brief.resource_id)?.name || 'Unassigned'
+        }
+      };
+    });
+  };
+
+  // Calendar custom event rendering
+  const renderEventContent = (eventInfo: any) => {
+    return (
+      <div className="flex items-center p-1 overflow-hidden">
+        <div
+          className="w-2 h-2 rounded-full mr-1.5 flex-shrink-0"
+          style={{ backgroundColor: eventInfo.event.borderColor }}
+        ></div>
+        <div className="font-medium text-xs truncate">
+          {eventInfo.event.title}
+        </div>
+      </div>
+    );
+  };
+
+  // Define your calendar options
+  const calendarOptions = {
+    plugins: [dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin],
+    initialView: 'dayGridMonth',
+    headerToolbar: renderCalendarHeader({}), 
+    events: formatCalendarEvents(briefs, resources),
+    eventClick: handleEventClick,
+    eventContent: renderEventContent,
+    height: 'auto',
+    dayMaxEvents: true,
+    eventTimeFormat: {
+      hour: '2-digit',
+      minute: '2-digit',
+      meridiem: 'short'
+    },
+    nowIndicator: true,
+    eventDisplay: 'block',
+    eventDidMount: (info: any) => {
+      // Add tooltip with additional information
+      tippy(info.el, {
+        content: `
+          <div class="p-2">
+            <div class="font-bold">${info.event.title}</div>
+            <div class="text-sm text-gray-600 capitalize">${info.event.extendedProps.status.replace('_', ' ')}</div>
+            <div class="text-sm">${info.event.extendedProps.channel || 'No channel'}</div>
+            <div class="text-sm">Assigned to: ${info.event.extendedProps.resource}</div>
+          </div>
+        `,
+        allowHTML: true,
+        theme: 'light-border',
+        placement: 'top',
+        arrow: true
+      });
+    }
+  };
+
+  // Improved calendar events for better visual appearance
+  const enhancedCalendarEvents = [
+    // Brief events
+    ...stats.upcomingDeadlines.map(brief => ({
+      id: `brief-${brief.id}`,
+      title: `📝 ${brief.title}`,
+      start: new Date(brief.due_date).toISOString(),
+      allDay: true,
+      backgroundColor: getStatusColor(brief.status),
+      borderColor: getStatusColor(brief.status),
+      url: `/briefs/${brief.id}`,
+      extendedProps: {
+        type: 'brief',
+        status: brief.status,
+        channel: brief.channel
+      }
+    })),
+    // Campaign events - limited to show only 30 days from start to improve appearance
+    ...stats.campaigns.map(campaign => {
+      const startDate = new Date(campaign.start_date);
+      const endDate = campaign.end_date ? new Date(campaign.end_date) : new Date(startDate);
+      
+      // Limit campaigns to display only 30 days at most in the calendar view
+      const displayEndDate = new Date(startDate);
+      displayEndDate.setDate(displayEndDate.getDate() + 30);
+      
+      // Use the earlier of the actual end date or the 30-day limit
+      const effectiveEndDate = endDate < displayEndDate ? endDate : displayEndDate;
+      
+      return {
+        id: `campaign-${campaign.id}`,
+        title: `🎯 ${campaign.name}`,
+        start: startDate.toISOString(),
+        end: effectiveEndDate.toISOString(),
+        allDay: true,
+        backgroundColor: '#3b82f660', // blue-500 with less opacity
+        borderColor: '#3b82f6',
+        url: `/campaigns/${campaign.id}`,
+        extendedProps: {
+          type: 'campaign',
+          status: campaign.status,
+          brand: campaign.brand?.name
+        }
+      };
+    })
+  ];
+
+  console.log('Calendar Events:', enhancedCalendarEvents); // Debug log
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -222,55 +409,6 @@ const Dashboard = () => {
   const utilizationPercent = totalResourceCapacity > 0 
     ? Math.round((totalResourceUtilization / totalResourceCapacity) * 100)
     : 0;
-
-  // Improved calendar events for better visual appearance
-  const calendarEvents = [
-    // Brief events
-    ...stats.upcomingDeadlines.map(brief => ({
-      id: `brief-${brief.id}`,
-      title: `📝 ${brief.title}`,
-      start: new Date(brief.due_date).toISOString(),
-      allDay: true,
-      backgroundColor: getStatusColor(brief.status),
-      borderColor: getStatusColor(brief.status),
-      url: `/briefs/${brief.id}`,
-      extendedProps: {
-        type: 'brief',
-        status: brief.status,
-        channel: brief.channel
-      }
-    })),
-    // Campaign events - limited to show only 30 days from start to improve appearance
-    ...stats.campaigns.map(campaign => {
-      const startDate = new Date(campaign.start_date);
-      const endDate = campaign.end_date ? new Date(campaign.end_date) : new Date(startDate);
-      
-      // Limit campaigns to display only 30 days at most in the calendar view
-      const displayEndDate = new Date(startDate);
-      displayEndDate.setDate(displayEndDate.getDate() + 30);
-      
-      // Use the earlier of the actual end date or the 30-day limit
-      const effectiveEndDate = endDate < displayEndDate ? endDate : displayEndDate;
-      
-      return {
-        id: `campaign-${campaign.id}`,
-        title: `🎯 ${campaign.name}`,
-        start: startDate.toISOString(),
-        end: effectiveEndDate.toISOString(),
-        allDay: true,
-        backgroundColor: '#3b82f660', // blue-500 with less opacity
-        borderColor: '#3b82f6',
-        url: `/campaigns/${campaign.id}`,
-        extendedProps: {
-          type: 'campaign',
-          status: campaign.status,
-          brand: campaign.brand?.name
-        }
-      };
-    })
-  ];
-
-  console.log('Calendar Events:', calendarEvents); // Debug log
 
   return (
     <div className="space-y-8 p-6 bg-gradient-to-br from-slate-50 via-white to-blue-50 min-h-screen">
@@ -526,21 +664,16 @@ const Dashboard = () => {
           </div>
           <div className="mt-4 bg-white rounded-lg border border-gray-100 p-1 h-[450px]">
             <FullCalendar
-              plugins={[dayGridPlugin, interactionPlugin]}
+              plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
               initialView="dayGridMonth"
-              events={calendarEvents}
+              events={enhancedCalendarEvents}
               headerToolbar={{
                 left: 'prev,next today',
                 center: 'title',
-                right: 'dayGridMonth,dayGridWeek'
+                right: 'dayGridMonth,timeGridWeek,listWeek'
               }}
               height="100%"
-              eventClick={(info) => {
-                info.jsEvent.preventDefault();
-                if (info.event.url) {
-                  window.location.href = info.event.url;
-                }
-              }}
+              eventClick={handleEventClick}
               dayMaxEvents={3}
               eventDisplay="block"
               eventTimeFormat={{
@@ -573,6 +706,29 @@ const Dashboard = () => {
               dayCellClassNames="hover:bg-blue-50"
               eventClassNames={(info) => {
                 return info.event.extendedProps.type === 'brief' ? 'brief-event' : 'campaign-event';
+              }}
+              eventDidMount={(info) => {
+                // Add tooltip with additional information
+                tippy(info.el, {
+                  content: `
+                    <div class="p-2">
+                      <div class="font-bold">${info.event.title.replace(/^(📝|🎯) /, '')}</div>
+                      ${info.event.extendedProps.type === 'brief' 
+                        ? `<div class="text-sm text-gray-600 capitalize">${info.event.extendedProps.status?.replace('_', ' ') || 'No status'}</div>
+                           <div class="text-sm">${info.event.extendedProps.channel || 'No channel'}</div>` 
+                        : `<div class="text-sm text-gray-600 capitalize">${info.event.extendedProps.status || 'No status'}</div>
+                           <div class="text-sm">${info.event.extendedProps.brand || 'No brand'}</div>`
+                      }
+                      ${info.event.extendedProps.type === 'brief' && info.event.extendedProps.resource 
+                        ? `<div class="text-sm">Assigned to: ${info.event.extendedProps.resource}</div>` 
+                        : ''}
+                    </div>
+                  `,
+                  allowHTML: true,
+                  theme: 'light-border',
+                  placement: 'top',
+                  arrow: true
+                });
               }}
             />
           </div>
