@@ -15,7 +15,12 @@ interface MediaTypeData {
   resources: ResourceWithBriefs[];
 }
 
-const MediaTypeUtilization = () => {
+interface MediaTypeUtilizationProps {
+  resources?: Resource[];
+  briefs?: Brief[];
+}
+
+const MediaTypeUtilization = ({ resources: propResources, briefs: propBriefs }: MediaTypeUtilizationProps = {}) => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,6 +28,14 @@ const MediaTypeUtilization = () => {
   const [selectedType, setSelectedType] = useState<string | null>(null);
 
   useEffect(() => {
+    // If data is provided as props, use it instead of fetching
+    if (propResources && propResources.length > 0 && propBriefs) {
+      setResources(propResources);
+      setBriefs(propBriefs);
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -41,7 +54,7 @@ const MediaTypeUtilization = () => {
         // Fetch briefs with resource_id
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('id, title, status, start_date, due_date, resource_id, estimated_hours')
+          .select('id, title, status, start_date, due_date, resource_id, estimated_hours, brand_id')
           .not('resource_id', 'is', null);
 
         if (briefsError) {

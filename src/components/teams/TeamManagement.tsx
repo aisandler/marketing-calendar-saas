@@ -3,10 +3,16 @@ import { supabase } from '../../lib/supabase';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { Plus, Edit, Trash } from 'lucide-react';
-import type { Team } from '../../types';
+import type { Team, Resource } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 
-const TeamManagement = () => {
+interface TeamManagementProps {
+  teams?: Team[];
+  resources?: Resource[];
+  onTeamChange?: () => void;
+}
+
+const TeamManagement = ({ teams: propTeams, resources: propResources, onTeamChange }: TeamManagementProps = {}) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -24,6 +30,13 @@ const TeamManagement = () => {
   const canManageTeams = user?.role === 'admin' || user?.role === 'manager';
 
   useEffect(() => {
+    // If teams are provided as props, use them instead of fetching
+    if (propTeams && propTeams.length > 0) {
+      setTeams(propTeams);
+      setLoading(false);
+      return;
+    }
+
     const fetchTeams = async () => {
       try {
         setLoading(true);

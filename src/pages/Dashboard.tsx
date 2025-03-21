@@ -44,6 +44,7 @@ interface DashboardStats {
   }>;
   pendingApprovals: number;
   campaigns: Array<Campaign>;
+  myBriefs?: Array<Brief>; // Add myBriefs to hold personalized briefs
 }
 
 const Dashboard = () => {
@@ -167,7 +168,8 @@ const Dashboard = () => {
           upcomingDeadlines,
           briefsByMediaType,
           pendingApprovals: pendingCount,
-          campaigns: campaigns || []
+          campaigns: campaigns || [],
+          myBriefs: briefsData
         });
 
         setResources(resourcesData);
@@ -786,6 +788,128 @@ const Dashboard = () => {
         <div className="lg:col-span-3">
           <DashboardCharts resources={resources} briefs={briefs} />
         </div>
+        
+        {/* My Dashboard Section with standalone cards */}
+        <Card 
+          className="transform transition-all hover:scale-[1.01] shadow-md hover:shadow-xl lg:col-span-3 mt-6"
+          decoration="bottom"
+          decorationColor="indigo"
+        >
+          <div className="flex items-center justify-between mb-4">
+            <Title className="text-lg font-bold text-gray-900">My Dashboard</Title>
+            <div className="flex space-x-2">
+              <button className={`px-3 py-1 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 bg-indigo-50 text-indigo-700`}>
+                Tasks
+              </button>
+              <button className={`px-3 py-1 text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 text-gray-500 hover:bg-gray-100`}>
+                Activity
+              </button>
+            </div>
+          </div>
+          
+          <div className="space-y-6 mt-4 bg-gray-50 p-4 rounded-lg">
+            {/* Demo standalone briefs */}
+            <div className="bg-white shadow rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Demo Standalone Brief: General Creative - Mar 14</h3>
+                  <div className="mt-2 flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mr-2">
+                      draft
+                    </span>
+                    <span className="text-sm text-gray-500">• Print</span>
+                  </div>
+                </div>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  Overdue
+                </span>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Link
+                  to="/briefs/1"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  View Details
+                </Link>
+              </div>
+            </div>
+            
+            <div className="bg-white shadow rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Demo Standalone Brief: Corporate Communication - Mar 15</h3>
+                  <div className="mt-2 flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mr-2">
+                      in progress
+                    </span>
+                    <span className="text-sm text-gray-500">• Social Media</span>
+                  </div>
+                </div>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                  Overdue
+                </span>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Link
+                  to="/briefs/2"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  View Details
+                </Link>
+              </div>
+            </div>
+            
+            <div className="bg-white shadow rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Plant-Based Protein Revolution - Concept Development</h3>
+                  <div className="mt-2 flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mr-2">
+                      draft
+                    </span>
+                    <span className="text-sm text-gray-500">• LinkedIn</span>
+                  </div>
+                </div>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Apr 9, 2025
+                </span>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Link
+                  to="/briefs/3"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  View Details
+                </Link>
+              </div>
+            </div>
+            
+            <div className="bg-white shadow rounded-lg p-4">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">Plant-Based Protein Revolution - Content Creation</h3>
+                  <div className="mt-2 flex items-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 mr-2">
+                      draft
+                    </span>
+                    <span className="text-sm text-gray-500">• YouTube</span>
+                  </div>
+                </div>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                  Apr 21, 2025
+                </span>
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Link
+                  to="/briefs/4"
+                  className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                >
+                  View Details
+                </Link>
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* Upcoming Deadlines - Enhanced with Card Structure */}
         <Card 
@@ -920,7 +1044,7 @@ const Dashboard = () => {
         >
           <TabGroup>
             <div className="flex items-center justify-between mb-4">
-              <Title className="text-lg font-bold text-gray-900">My Dashboard</Title>
+              <Title className="text-lg font-bold text-gray-900">Activity & Tasks</Title>
               <TabList variant="solid" className="mt-0">
                 <Tab>Tasks</Tab>
                 <Tab>Activity</Tab>
@@ -967,9 +1091,12 @@ const Dashboard = () => {
                             </div>
                             
                             <div className="mt-2 flex justify-end space-x-2">
-                              <button className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                              <Link
+                                to={`/briefs/${brief.id}`}
+                                className="inline-flex items-center px-2.5 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                              >
                                 View Details
-                              </button>
+                              </Link>
                               {brief.status === 'pending_approval' && (
                                 <button className="inline-flex items-center px-2.5 py-1.5 border border-transparent shadow-sm text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                   Approve

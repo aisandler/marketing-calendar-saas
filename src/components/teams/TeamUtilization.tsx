@@ -12,7 +12,13 @@ interface TeamUtilizationData {
   resources: Resource[];
 }
 
-const TeamUtilization = () => {
+interface TeamUtilizationProps {
+  teams?: Team[];
+  resources?: Resource[];
+  briefs?: Brief[];
+}
+
+const TeamUtilization = ({ teams: propTeams, resources: propResources, briefs: propBriefs }: TeamUtilizationProps = {}) => {
   const [loading, setLoading] = useState(true);
   const [teams, setTeams] = useState<Team[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -22,6 +28,15 @@ const TeamUtilization = () => {
   const [teamUtilizationData, setTeamUtilizationData] = useState<TeamUtilizationData[]>([]);
 
   useEffect(() => {
+    // If all data is provided as props, use it instead of fetching
+    if (propTeams && propTeams.length > 0 && propResources && propResources.length > 0 && propBriefs) {
+      setTeams(propTeams);
+      setResources(propResources);
+      setBriefs(propBriefs);
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -50,7 +65,7 @@ const TeamUtilization = () => {
         // Fetch briefs with resource assignments
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('id, title, status, start_date, due_date, resource_id, estimated_hours')
+          .select('id, title, status, start_date, due_date, resource_id, estimated_hours, brand_id')
           .not('resource_id', 'is', null);
 
         if (briefsError) {

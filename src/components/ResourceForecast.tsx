@@ -22,7 +22,12 @@ interface ForecastWeek {
   label: string;
 }
 
-const ResourceForecast = () => {
+interface ResourceForecastProps {
+  resources?: Resource[];
+  briefs?: Brief[];
+}
+
+const ResourceForecast = ({ resources: propResources, briefs: propBriefs }: ResourceForecastProps = {}) => {
   const [resources, setResources] = useState<Resource[]>([]);
   const [briefs, setBriefs] = useState<Brief[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +43,42 @@ const ResourceForecast = () => {
   const numberOfWeeks = 8;
 
   useEffect(() => {
+    // If data is provided as props, only generate forecast weeks and use props data
+    if (propResources && propResources.length > 0 && propBriefs) {
+      setResources(propResources);
+      setBriefs(propBriefs);
+      
+      // Generate forecast weeks regardless of data source
+      const today = new Date();
+      const startDate = startOfWeek(today);
+      const weeks: ForecastWeek[] = [];
+
+      for (let i = 0; i < numberOfWeeks; i++) {
+        const weekStart = addWeeks(startDate, i);
+        const weekEnd = endOfWeek(weekStart);
+        weeks.push({
+          startDate: weekStart,
+          endDate: weekEnd,
+          label: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d')}`
+        });
+      }
+
+      setForecastWeeks(weeks);
+      
+      // Extract unique media types from provided resources
+      const mediaTypes = Array.from(
+        new Set(
+          propResources
+            .filter(resource => resource.media_type)
+            .map(resource => resource.media_type)
+        )
+      ).sort() as string[];
+      
+      setAvailableMediaTypes(mediaTypes);
+      setLoading(false);
+      return;
+    }
+
     const fetchData = async () => {
       try {
         setLoading(true);
@@ -56,7 +97,7 @@ const ResourceForecast = () => {
         // Fetch briefs with estimated_hours and dates
         const { data: briefsData, error: briefsError } = await supabase
           .from('briefs')
-          .select('id, title, status, start_date, due_date, resource_id, estimated_hours')
+          .select('id, title, status, start_date, due_date, resource_id, estimated_hours, brand_id')
           .not('resource_id', 'is', null)
           .not('estimated_hours', 'is', null);
 
